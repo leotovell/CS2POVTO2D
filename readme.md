@@ -6,14 +6,14 @@ This project was initially supposed to be strictly for creating gifs or short vi
 
 ## New Direction
 
-Now, the focus is on creating an interactive 2D viewer, similar to/inspired by SCL.gg, allowing a team to analyse their own, and opposition demos. See the _feature map (link)_ to see plans and current product state.
+Now, the focus is on creating an interactive 2D viewer, similar to/inspired by [SCL.GG](https://scl.gg), allowing a team to analyse their own, and opposition demos. See the [feature map](#feature-map) to see plans and current product state.
 
 ## Feature Map
 
 _&check; = fully supported_<br>
 _&cross; = not currently supported_<br>
-_~ = to implement_<br>
-_name = currently in development by name_<br>
+_~ = tbc_<br>
+_name = in development_<br>
 
 | Feature               |   POV   | SourceTV |
 | :-------------------- | :-----: | :------: |
@@ -27,3 +27,42 @@ _name = currently in development by name_<br>
 | -> Scrubbing          | &check; | &check;  |
 | -> Round Timer        | &cross; | &cross;  |
 | -> Skip To Round      |    ~    |    ~     |
+
+## Installation
+
+### Easiest Method (Recommended for Most Users)
+
+1. Head to the **[Latest Release](https://github.com/yourusername/yourrepo/releases)**.
+2. Download and run `demoreview Setup 1.0.0.exe`.
+3. Once installed, you can search **"demoreview"** in your Windows Start menu to launch the app.
+
+---
+
+### Run from Source (Development)
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/leotovell/CS2POVTO2D
+   cd CS2POVTO2D
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the app:
+   ```bash
+   npm run start
+   ```
+
+---
+
+### Build from Source
+
+1. Clone the repository and install dependencies as shown above.
+2. Build the app:
+   ```bash
+   npm run dist
+   ```
+3. Run either:
+   - `dist/win-unpacked/demoreview.exe` (runs in place, no installation), or
+   - `dist/demoreview Setup 1.0.0.exe` to install on your system.
