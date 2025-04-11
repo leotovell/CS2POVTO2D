@@ -12,7 +12,7 @@ Now, the focus is on creating an interactive 2D viewer, similar to/inspired by [
 
 _&check; = fully supported_<br>
 _&cross; = not currently supported_<br>
-_~ = tbc_<br>
+_\~ = tbc_<br>
 _name = in development_<br>
 
 | Feature               |   POV   | SourceTV |
