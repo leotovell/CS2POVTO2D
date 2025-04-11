@@ -1,0 +1,42 @@
+{
+  "name": "cs2-demo-electron",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "electron": "^35.1.4",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "@laihoe/demoparser2": "^0.38.3",
+    "bootstrap": "^5.3.5",
+    "bootstrap-icons": "^1.11.3",
+    "jquery": "^3.7.1"
+  },
+  "build": {
+    "appId": "com.alvum.demoreview",
+    "productName": "demoreview",
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "demoPreview.html",
+      "demoViewer.html",
+      "index.html",
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "css/",
+      "img/",
+      "map-data/"
+    ]
+  }
+}
