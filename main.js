@@ -100,6 +100,25 @@ app.whenReady().then(() => {
       }
     });
 
+    let nadeFlightPaths = {};
+
+    Object.entries(groupedTicks).forEach(([tickNum, tick]) => {
+      const nades = tick.grenades;
+
+      nades.forEach((nade) => {
+        if (!nadeFlightPaths[nade.id]) {
+          nadeFlightPaths[nade.id] = {
+            path: {},
+            origin: [nade.x, nade.y],
+            detonate_tick: null,
+            expire_tick: null,
+          };
+        }
+
+        nadeFlightPaths[nade.id].path[tickNum] = [nade.x, nade.y];
+      });
+    });
+
     // let nadeFlightPaths = {};
 
     // Object.entries(groupedTicks).forEach(([tickNum, tick]) => {
@@ -165,7 +184,7 @@ app.whenReady().then(() => {
     //   }
     // });
 
-    return { ticks: groupedTicks, nades: grenades };
+    return { ticks: groupedTicks, nadePaths: nadeFlightPaths };
   });
 
   console.log("Initialising Window...");

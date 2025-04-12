@@ -151,7 +151,7 @@ async function initDemoReviewPage() {
   // localStorage.setItem("demoTicks", JSON.stringify(demoTicks.ticks));
   window.demoTicks = demoTicks.ticks;
   window.nades = demoTicks.nades;
-  window.nadeFlightPaths = demoTicks.nadeFlightPaths;
+  window.nadeFlightPaths = demoTicks.nadePaths;
   loader.style.display = "none";
 
   const canvas = document.getElementById("minimap");
@@ -304,6 +304,16 @@ async function initDemoReviewPage() {
           ctx.arc(x, y, 5, 0, 2 * Math.PI);
           ctx.fillStyle = "teal";
           ctx.fill();
+
+          // Also draw the path
+          const path = window.nadeFlightPaths[nade.id];
+          const [pathOriginX, pathOriginY] = worldToMap(path.origin[0], path.origin[1], map);
+          const [pathX, pathY] = worldToMap(path.path[tickKey][0], path.path[tickKey][1], map);
+          ctx.setLineDash([5, 3]);
+          ctx.beginPath();
+          ctx.moveTo(pathOriginX, pathOriginY);
+          ctx.lineTo(pathX, pathY);
+          ctx.stroke();
         });
       }
 
