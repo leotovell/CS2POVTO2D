@@ -53,6 +53,16 @@ app.whenReady().then(() => {
     const ticks = parseTicks(path, ["X", "Y", "team_num", "yaw", "is_alive", "rotation"]);
     const grenades = parseGrenades(path);
 
+    // Create a list of round_starts. Can work out how many ticks into the round, and consquently the seconds into the round.
+    // current_tick - round_start_tick = round_tick. Then we can do 1m55s - (round_tick/64);
+
+    // Get round_starts
+    const roundStartEvents = parseEvents(path, ["round_start"]);
+
+    console.log(roundStartEvents);
+
+    let roundStarts = roundStartEvents.map((e) => e.tick);
+
     // grenadeActiveEvents
     // const grenadeActivations = parseEvents(path, ["inferno_startburn", "inferno_expire", "smokegrenade_detonate", "flashbang_detonate", "decoy_detonate", "smokegrenade_expired", "hegrenade_detonate"]);
 
@@ -165,7 +175,7 @@ app.whenReady().then(() => {
     //   }
     // });
 
-    return { ticks: groupedTicks, nades: grenades };
+    return { ticks: groupedTicks, nades: grenades, roundStarts: roundStarts };
   });
 
   console.log("Initialising Window...");

@@ -152,6 +152,7 @@ async function initDemoReviewPage() {
   window.demoTicks = demoTicks.ticks;
   window.nades = demoTicks.nades;
   window.nadeFlightPaths = demoTicks.nadeFlightPaths;
+  let roundStarts = demoTicks.roundStarts;
   loader.style.display = "none";
 
   const canvas = document.getElementById("minimap");
@@ -160,7 +161,8 @@ async function initDemoReviewPage() {
   const ticks = window.demoTicks;
   const map = JSON.parse(localStorage.getItem("demoMapData"));
 
-  console.log(ticks);
+  const roundTimeMins = document.getElementById("roundTimeMinutes");
+  const roundTimeSecs = document.getElementById("roundTimeSeconds");
 
   const tickrate = 64;
   let i = 0;
@@ -188,6 +190,29 @@ async function initDemoReviewPage() {
       .sort((a, b) => a - b);
     const lastTick = tickKeys[tickKeys.length - 1];
 
+    function updateRoundTime(currentTick) {
+      // find latest round start
+      let lastRoundStart = -Infinity;
+      for (const num of roundStarts) {
+        if (num <= currentTick && num > lastRoundStart) {
+          lastRoundStart = num;
+        }
+      }
+
+      // work out round tick
+      let roundTick = currentTick - lastRoundStart;
+
+      // Divide to get the current seconds elapsed
+      let secondsElapsedInRound = roundTick / 64;
+
+      // Minus from total round allowance (default = 115s (1m55s))
+      let roundTimeRemaining = 115 - secondsElapsedInRound;
+
+      // Work out minutes + seconds and change HTML values;
+      roundTimeMins.innerHTML = Math.floor(roundTimeRemaining / 60);
+      roundTimeSecs.innerHTML = roundTimeRemaining % 60;
+    }
+
     function renderRoundSegments(tickList, totalTicks) {
       const barWidth = scrubBar.offsetWidth;
       backgroundDiv.innerHTML = ""; // Clear previous
@@ -210,15 +235,7 @@ async function initDemoReviewPage() {
       }
     }
 
-    roundTicks = JSON.parse(localStorage.getItem("demoRoundEnds"));
-
-    // roundTicksIntoArray
-    const roundTicksAsArr = [];
-    roundTicks.forEach((r) => {
-      roundTicksAsArr.push(r.tick);
-    });
-
-    renderRoundSegments(roundTicksAsArr, lastTick);
+    renderRoundSegments(roundStarts, lastTick);
 
     function worldToMap(x, y, map) {
       const offsetX = map.pos_x;
@@ -247,6 +264,9 @@ async function initDemoReviewPage() {
     function drawCurrentTickFrame() {
       const tickKey = tickKeys[i];
       const tick = ticks[tickKey];
+
+      // update the round timer
+      updateRoundTime(tickKey);
 
       currentTickSpan.innerHTML = tickKey + " of " + lastTick;
 
