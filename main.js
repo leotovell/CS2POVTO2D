@@ -57,11 +57,12 @@ app.whenReady().then(() => {
     // current_tick - round_start_tick = round_tick. Then we can do 1m55s - (round_tick/64);
 
     // Get round_starts
-    const roundStartEvents = parseEvents(path, ["round_start"]);
+    const roundStartEvents = parseEvents(path, ["round_start", "round_freeze_end"]);
 
     console.log(roundStartEvents);
 
-    let roundStarts = roundStartEvents.map((e) => e.tick);
+    let roundStarts = roundStartEvents.filter((e) => e.event_name == "round_start").map((e) => e.tick);
+    let freezeEnds = roundStartEvents.filter((e) => e.event_name == "round_freeze_end").map((e) => e.tick);
 
     // grenadeActiveEvents
     // const grenadeActivations = parseEvents(path, ["inferno_startburn", "inferno_expire", "smokegrenade_detonate", "flashbang_detonate", "decoy_detonate", "smokegrenade_expired", "hegrenade_detonate"]);
@@ -175,7 +176,7 @@ app.whenReady().then(() => {
     //   }
     // });
 
-    return { ticks: groupedTicks, nades: grenades, roundStarts: roundStarts };
+    return { ticks: groupedTicks, nades: grenades, roundStarts: roundStarts, freezeEnds: freezeEnds };
   });
 
   console.log("Initialising Window...");

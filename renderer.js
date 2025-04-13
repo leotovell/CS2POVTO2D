@@ -153,6 +153,7 @@ async function initDemoReviewPage() {
   window.nades = demoTicks.nades;
   window.nadeFlightPaths = demoTicks.nadeFlightPaths;
   let roundStarts = demoTicks.roundStarts;
+  let freezeEnds = demoTicks.freezeEnds;
   loader.style.display = "none";
 
   const canvas = document.getElementById("minimap");
@@ -190,7 +191,13 @@ async function initDemoReviewPage() {
       .sort((a, b) => a - b);
     const lastTick = tickKeys[tickKeys.length - 1];
 
-    function updateRoundTime(currentTick) {
+    /**
+     * @description Updates the `Round Timer`, `Current Round` UI elements.
+     * @author Leo Tovell
+     *
+     * @param {Number} currentTick
+     */
+    function updateRoundInfo(currentTick) {
       // find latest round start
       let lastRoundStart = -Infinity;
       for (const num of roundStarts) {
@@ -199,18 +206,30 @@ async function initDemoReviewPage() {
         }
       }
 
-      // work out round tick
-      let roundTick = currentTick - lastRoundStart;
+      let lastFreezeEnds = -Infinity;
+      for (const num of freezeEnds) {
+        if (num <= currentTick && num > lastFreezeEnds) {
+          lastFreezeEnds = num;
+        }
+      }
+      // Conditional: if lastRoundStart > lastFreezeEnds then pause the timer at 1:55s (we are in a freeze time or a timeout)
+      if (lastRoundStart > lastFreezeEnds) {
+        roundTimeMins.innerHTML = "1";
+        roundTimeSecs.innerHTML = "55";
+      } else {
+        // work out round tick
+        let roundTick = currentTick - lastFreezeEnds;
 
-      // Divide to get the current seconds elapsed
-      let secondsElapsedInRound = roundTick / 64;
+        // Divide to get the current seconds elapsed
+        let secondsElapsedInRound = roundTick / 64;
 
-      // Minus from total round allowance (default = 115s (1m55s))
-      let roundTimeRemaining = 115 - secondsElapsedInRound;
+        // Minus from total round allowance (default = 115s (1m55s))
+        let roundTimeRemaining = 115 - secondsElapsedInRound;
 
-      // Work out minutes + seconds and change HTML values;
-      roundTimeMins.innerHTML = Math.floor(roundTimeRemaining / 60);
-      roundTimeSecs.innerHTML = roundTimeRemaining % 60;
+        // Work out minutes + seconds and change HTML values;
+        roundTimeMins.innerHTML = Math.floor(roundTimeRemaining / 60);
+        roundTimeSecs.innerHTML = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
+      }
     }
 
     function renderRoundSegments(tickList, totalTicks) {
