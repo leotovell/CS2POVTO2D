@@ -23,14 +23,10 @@ export function debugTime(label, fn) {
 export function previewDemo(demoBuffer) {
   const header = debugTime("parseHeader", () => parseHeader(demoBuffer));
   const players = debugTime("parsePlayerInfo", () => parsePlayerInfo(demoBuffer));
-  const events = debugTime("listGameEvents", () => listGameEvents(demoBuffer));
-  const roundEnds = debugTime("parseEvents", () => parseEvents(demoBuffer, ["round_end"]));
 
   return {
     header,
     players,
-    events,
-    roundEnds,
   };
 }
 

@@ -32,7 +32,6 @@ function initHomePage() {
 
     if (filePaths && filePaths.length > 0) {
       isDemoSelected = true;
-      console.log("path:", filePaths[0]);
       demoPath = filePaths[0];
       localStorage.setItem("demoPath", demoPath);
       demoFileNameSpan.innerHTML = filePaths[0].split("\\").slice(-1)[0];
@@ -58,12 +57,10 @@ function initHomePage() {
     }
     enableLoader(loader, loaderText, "Previewing Demo...");
     const demoPreviewInfo = await window.electron.previewDemo(demoPath);
-    localStorage.setItem("demoMapData", JSON.stringify(demoPreviewInfo.mapdata));
+    console.log(demoPreviewInfo);
     localStorage.setItem("demoMapName", demoPreviewInfo.header.map_name);
     localStorage.setItem("demoHeader", JSON.stringify(demoPreviewInfo.header));
-    localStorage.setItem("demoPlayers", JSON.stringify(demoPreviewInfo.players));
-    localStorage.setItem("demoRoundEnds", JSON.stringify(demoPreviewInfo.roundEnds));
-    localStorage.setItem("demoEvents", JSON.stringify(demoPreviewInfo.events));
+    localStorage.setItem("demoScoreboard", JSON.stringify(demoPreviewInfo.scoreboard));
     disableLoader(loader);
     loadPage("demoPreview.html");
   });
@@ -80,21 +77,54 @@ function initDemoPreviewPage() {
   if (demoHeader.client_name == "SourceTV Demo") {
     setElementVisible(scoreboardDiv);
     // It's a server-recorded demo.
-    const demoPlayers = JSON.parse(localStorage.getItem("demoPlayers"));
+    const demoScoreboard = JSON.parse(localStorage.getItem("demoScoreboard"));
     const previewTeamAPlayerDiv = document.getElementById("p_teamAPlayers");
     const previewTeamBPlayerDiv = document.getElementById("p_teamBPlayers");
+    const teamAScoreSpan = document.getElementById("teamAScore");
+    const teamBScoreSpan = document.getElementById("teamBScore");
+    const teamANameSpan = document.getElementById("teamAName");
+    const teamBNameSpan = document.getElementById("teamBName");
+    const teamAScore = demoScoreboard.teamAlpha.score;
+    const teamBScore = demoScoreboard.teamBeta.score;
+    const teamAName = demoScoreboard.teamAlpha.name;
+    const teamBName = demoScoreboard.teamBeta.name;
+
+    // Set score
+    teamAScoreSpan.innerHTML = teamAScore;
+    teamAScoreSpan.className = teamAScore > teamBScore ? "text-success" : "text-danger";
+    teamANameSpan.innerHTML = teamAName;
+
+    teamBScoreSpan.innerHTML = teamBScore;
+    teamBScoreSpan.className = teamBScore > teamAScore ? "text-success" : "text-danger";
+    teamBNameSpan.innerHTML = teamBName;
 
     // Place players on each side
-    if (demoPlayers) {
-      demoPlayers.forEach((player) => {
+    // if (demoScoreboard) {
+    //   demoScoreboard.forEach((player) => {
+    //     let entry = document.createElement("div");
+    //     entry.className = "col";
+    //     entry.innerHTML = player.name;
+    //     if (player.team_number === 2) {
+    //       previewTeamAPlayerDiv.append(entry);
+    //     } else if (player.team_number === 3) {
+    //       previewTeamBPlayerDiv.append(entry);
+    //     }
+    //     entry.style.margin = "0";
+    //   });
+    // }
+    if (demoScoreboard) {
+      demoScoreboard.teamAlpha.players.forEach((player) => {
         let entry = document.createElement("div");
         entry.className = "col";
         entry.innerHTML = player.name;
-        if (player.team_number === 2) {
-          previewTeamAPlayerDiv.append(entry);
-        } else if (player.team_number === 3) {
-          previewTeamBPlayerDiv.append(entry);
-        }
+        previewTeamAPlayerDiv.append(entry);
+        entry.style.margin = "0";
+      });
+      demoScoreboard.teamBeta.players.forEach((player) => {
+        let entry = document.createElement("div");
+        entry.className = "col";
+        entry.innerHTML = player.name;
+        previewTeamBPlayerDiv.append(entry);
         entry.style.margin = "0";
       });
     }
@@ -145,6 +175,12 @@ async function initDemoReviewPage() {
   const roundSelect = document.getElementById("roundSelect");
   const prevRoundBtn = document.getElementById("prevRoundBtn");
   const nextRoundBtn = document.getElementById("nextRoundBtn");
+  const saveDemoBtn = document.getElementById("saveDemoBtn");
+
+  saveDemoBtn.addEventListener("click", () => {
+    const res = window.electron.saveProcessedDemo();
+    alert("Saving demo was", res ? "successful" : "unsuccessful");
+  });
 
   // Process and store the demo ticks
   enableLoader(loader, loaderText, "Processing Demo...");
