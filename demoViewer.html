@@ -1,51 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-        <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
-        <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-        <link rel="stylesheet" href="css/demo-preview.css" />
-        <link rel="stylesheet" href="css/common.css" />
-        <meta charset="UTF-8" />
-        <title>CS2 Demo To 2D | Demo Review</title>
-    </head>
-    <body id="review-demo">
-        <div class="loader-overlay" id="loader">
-            <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <div class="loader-text" id="loader-text">Loading dashboard data...</div>
-        </div>
-        <div class="container m-4">
-            <h1>Review Demo</h1>
+  <head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="css/demo-preview.css" />
+    <link rel="stylesheet" href="css/common.css" />
+    <meta charset="UTF-8" />
+    <title>CS2 Demo To 2D | Demo Review</title>
+  </head>
+  <body id="review-demo">
+    <div class="loader-overlay" id="loader">
+      <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <div class="loader-text" id="loader-text">Loading dashboard data...</div>
+    </div>
+    <div class="container m-4">
+      <h1>Review Demo</h1>
 
-            <select id="speedMultiplierSelect">
-                <option value="0.25">0.25x</option>
-                <option value="0.5">0.5x</option>
-                <option value="0.75">0.75x</option>
-                <option value="1" selected>1x</option>
-                <option value="1.5">1.5x</option>
-                <option value="2">2x</option>
-                <option value="4">4x</option>
-                <option value="8">8x</option>
-            </select>
+      <select id="speedMultiplierSelect">
+        <option value="0.25">0.25x</option>
+        <option value="0.5">0.5x</option>
+        <option value="0.75">0.75x</option>
+        <option value="1" selected>1x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2">2x</option>
+        <option value="4">4x</option>
+        <option value="8">8x</option>
+      </select>
 
-            <button id="playPauseBtn">Pause</button>
+      <button id="playPauseBtn">Pause</button>
 
-            <span>Current Tick: </span><span id="currentTickSpan">-</span>
+      <span>Current Tick: </span><span id="currentTickSpan">-</span>
 
-            <span>Round Time: </span><span id="roundTimeMinutes"></span><span>:</span><span id="roundTimeSeconds"></span>
+      <span>Round Time: </span><span id="roundTimeMinutes"></span><span>:</span><span id="roundTimeSeconds"></span>
 
-            <div class="mt-4 position-relative" style="height: 30px">
-                <label for="scrubBar" class="form-label">Scrub Time</label>
-                <div id="scrubBarBackground" style="position: absolute; top: 22px; left: 0; right: 0; height: 8px; background: transparent; z-index: 0; pointer-events: none"></div>
+      <button id="prevRoundBtn"><-</button>
+      <select id="roundSelect"></select>
+      <button id="nextRoundBtn">-></button>
 
-                <input type="range" class="form-range position-relative" id="scrubBar" min="0" max="100" value="0" step="1" style="z-index: 1; background: transparent" />
-            </div>
+      <div class="mt-4 position-relative" style="height: 30px">
+        <label for="scrubBar" class="form-label">Scrub Time</label>
+        <div id="scrubBarBackground" style="position: absolute; top: 22px; left: 0; right: 0; height: 8px; background: transparent; z-index: 0; pointer-events: none"></div>
 
-            <canvas id="minimap" width="1024" height="1024"></canvas>
-        </div>
+        <input type="range" class="form-range position-relative" id="scrubBar" min="0" max="100" value="0" step="1" style="z-index: 1; background: transparent" />
+      </div>
 
-        <script type="module" src="./renderer.js"></script>
-    </body>
+      <canvas id="minimap" width="1024" height="1024"></canvas>
+    </div>
+
+    <script type="module" src="./renderer.js"></script>
+  </body>
 </html>

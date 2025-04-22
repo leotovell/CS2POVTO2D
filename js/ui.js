@@ -11,8 +11,8 @@
  * @param {String} text Loader text
  */
 export function enableLoader(loader, loaderText, text = "Loading...") {
-    loader.style.display = "flex";
-    loaderText.innerHTML = text;
+  loader.style.display = "flex";
+  loaderText.innerHTML = text;
 }
 
 /**
@@ -22,7 +22,7 @@ export function enableLoader(loader, loaderText, text = "Loading...") {
  * @param {HTMLElement} loader Element containing the loader
  */
 export function disableLoader(loader) {
-    loader.style.display = "none";
+  loader.style.display = "none";
 }
 
 /**
@@ -32,7 +32,7 @@ export function disableLoader(loader) {
  * @param {HTMLElement} element Element to turn visible
  */
 export function setElementVisible(element) {
-    element.style.visibility = "visible";
+  element.style.visibility = "visible";
 }
 
 /**
@@ -42,5 +42,13 @@ export function setElementVisible(element) {
  * @param {HTMLElement} element Element to turn invisible
  */
 export function setElementInvisible(element) {
-    element.style.visibility = "hidden";
+  element.style.visibility = "hidden";
+}
+
+export function disableElement(element) {
+  element.disabled = true;
+}
+
+export function enableElement(element) {
+  element.disabled = false;
 }

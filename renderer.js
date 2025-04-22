@@ -1,6 +1,6 @@
 // const { enableLoader, disableLoader } = require("./js/ui");
-import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap } from "./js/demo.js";
-import { enableLoader, disableLoader, setElementVisible } from "./js/ui.js";
+import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap, goToRound } from "./js/demo.js";
+import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement } from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -127,6 +127,11 @@ function initDemoPreviewPage() {
   });
 }
 
+export let tickStore = {
+  currentTick: 0,
+  currentRound: 0,
+};
+
 async function initDemoReviewPage() {
   // Define all HTML elements
   const loader = document.getElementById("loader");
@@ -137,6 +142,9 @@ async function initDemoReviewPage() {
   const speedMultiplierSelect = document.getElementById("speedMultiplierSelect");
   const scrubBar = document.getElementById("scrubBar");
   const playPauseBtn = document.getElementById("playPauseBtn");
+  const roundSelect = document.getElementById("roundSelect");
+  const prevRoundBtn = document.getElementById("prevRoundBtn");
+  const nextRoundBtn = document.getElementById("nextRoundBtn");
 
   // Process and store the demo ticks
   enableLoader(loader, loaderText, "Processing Demo...");
@@ -148,7 +156,6 @@ async function initDemoReviewPage() {
 
   // Flags
   const tickrate = 64;
-  let i = 0;
   let paused = false;
   let isScrubbing = false;
   let animationTimeout;
@@ -178,15 +185,27 @@ async function initDemoReviewPage() {
     function drawFrame() {
       if (paused || isScrubbing) return;
 
-      const tickKey = tickKeys[i];
+      const tickKey = tickKeys[tickStore.currentTick];
       const tick = ticks[tickKey];
+
+      // Update the forward/backward round buttons
+      if (tickStore.currentRound == 1) {
+        disableElement(prevRoundBtn);
+      } else {
+        enableElement(prevRoundBtn);
+      }
+      if (tickStore.currentRound == roundStarts.length) {
+        disableElement(nextRoundBtn);
+      } else {
+        enableElement(nextRoundBtn);
+      }
 
       // drawCurrentTickFrame(); // just render
       drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImg);
       const tickDurationMs = 1000 / speedMultiplier / tickrate;
 
-      i++;
-      if (i < tickKeys.length) {
+      tickStore.currentTick++;
+      if (tickStore.currentTick < tickKeys.length) {
         animationTimeout = setTimeout(drawFrame, tickDurationMs);
       } else {
         console.log("Playback complete");
@@ -208,8 +227,19 @@ async function initDemoReviewPage() {
       clearTimeout(animationTimeout); // Stop any current animation
 
       const newTick = parseInt(scrubBar.value);
-      i = seekToDemoTime(newTick, tickKeys);
-      const tickKey = tickKeys[i];
+      seekToDemoTime(newTick, tickKeys);
+      // Find out what round we are now on.
+      let lastRoundStart = -Infinity;
+      for (const num of roundStarts) {
+        if (num <= tickStore.currentTick && num > lastRoundStart) {
+          lastRoundStart = num;
+        }
+      }
+      tickStore.currentRound = roundStarts.indexOf(lastRoundStart);
+      console.log("CurrentRound", tickStore.currentRound);
+      // Update the currentRoundCounter
+      roundSelect.value = tickStore.currentRound;
+      const tickKey = tickKeys[tickStore.currentTick];
       const tick = ticks[tickKey];
       drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImg); // Just render the frame without resuming playback
     });
@@ -235,6 +265,39 @@ async function initDemoReviewPage() {
       } else {
         playPauseBtn.innerText = "Play";
         clearTimeout(animationTimeout);
+      }
+    });
+
+    // Add round select options (and also init the listener)
+    for (let round = 0; round < roundStarts.length; round++) {
+      const option = document.createElement("option");
+      option.value = round;
+      option.innerHTML = round;
+      roundSelect.append(option);
+    }
+
+    roundSelect.addEventListener("input", () => {
+      goToRound(roundSelect.value, roundStarts); //change selected tick
+      tickStore.currentRound = roundSelect.value;
+    });
+
+    prevRoundBtn.addEventListener("click", () => {
+      if (tickStore.currentRound - 1 < 1) {
+        alert("No previous round!");
+      } else {
+        tickStore.currentRound--;
+        goToRound(tickStore.currentRound, roundStarts);
+        roundSelect.value = tickStore.currentRound;
+      }
+    });
+
+    nextRoundBtn.addEventListener("click", () => {
+      if (tickStore.currentRound + 1 > roundStarts.length) {
+        alert("No further round!");
+      } else {
+        tickStore.currentRound++;
+        goToRound(tickStore.currentRound, roundStarts);
+        roundSelect.value = tickStore.currentRound;
       }
     });
 
