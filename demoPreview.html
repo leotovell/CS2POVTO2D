@@ -1,61 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
-    <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <link rel="stylesheet" href="css/demo-preview.css" />
-    <link rel="stylesheet" href="css/common.css" />
-    <meta charset="UTF-8" />
-    <title>CS2 Demo To 2D | Demo Preview</title>
-  </head>
-  <body id="preview-demo">
-    <div class="loader-overlay" id="loader">
-      <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <div class="loader-text" id="loader-text">Loading dashboard data...</div>
-    </div>
-    <div class="container m-4">
-      <!-- Banner Image at the Top -->
-      <div class="banner-image-container">
-        <img src="img/maps/de_mirage.png" alt="Map Preview" id="p_mapImg" />
-      </div>
+    <head>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+        <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
+        <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        <link rel="stylesheet" href="css/demo-preview.css" />
+        <link rel="stylesheet" href="css/common.css" />
+        <meta charset="UTF-8" />
+        <title>CS2 Demo To 2D | Demo Preview</title>
+    </head>
+    <body id="preview-demo">
+        <div class="loader-overlay" id="loader">
+            <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="loader-text" id="loader-text">Loading dashboard data...</div>
+        </div>
+        <div class="container m-4">
+            <!-- Banner Image at the Top -->
+            <div class="banner-image-container">
+                <img src="img/maps/de_mirage.png" alt="Map Preview" id="p_mapImg" />
+            </div>
 
-      <!-- Score Display -->
-      <div style="visibility: hidden" id="ScoreboardInformation" class="score-display-container d-flex justify-content-between align-items-center my-4">
-        <div class="team-list">
-          <h5 class="text-center">Team Alpha</h5>
-          <div class="row row-cols-1" id="p_teamAPlayers"></div>
+            <!-- Score Display -->
+            <div style="visibility: hidden" id="ScoreboardInformation" class="score-display-container d-flex justify-content-between align-items-center my-4">
+                <div class="team-list">
+                    <h5 class="text-center">Team Alpha</h5>
+                    <div class="row row-cols-1" id="p_teamAPlayers"></div>
+                </div>
+
+                <div class="score-display text-center">
+                    <h1 class="display-1 fw-bold"><span class="text-success">13</span>&nbsp;:&nbsp;<span class="text-danger">9</span></h1>
+                </div>
+
+                <div class="team-list">
+                    <h5 class="text-center">Team Bravo</h5>
+                    <div class="row row-cols-1" id="p_teamBPlayers"></div>
+                </div>
+            </div>
+
+            <div style="visibility: hidden" id="POVInformation" class="d-flex justify-content-center align-items-center my-4">
+                <div class="text-center">
+                    <h1>No scoreboard available for POV Demos</h1>
+                    <p>Recorded by: <span id="recordedBySpan">N/A</span></p>
+                </div>
+            </div>
+
+            <!-- Instructions Above Buttons -->
+            <!-- <p class="instructions">If the information above is expected, proceed below.</p> -->
+
+            <!-- Buttons -->
+            <div class="button-container">
+                <button id="backBtn" class="btn btn-danger">Back</button>
+                <button id="nextBtn" class="btn btn-primary">Next</button>
+            </div>
         </div>
 
-        <div class="score-display text-center">
-          <h1 class="display-1 fw-bold"><span class="text-success">13</span>&nbsp;:&nbsp;<span class="text-danger">9</span></h1>
-        </div>
-
-        <div class="team-list">
-          <h5 class="text-center">Team Bravo</h5>
-          <div class="row row-cols-1" id="p_teamBPlayers"></div>
-        </div>
-      </div>
-
-      <div style="visibility: hidden" id="POVInformation" class="d-flex justify-content-center align-items-center my-4">
-        <div class="text-center">
-          <h1>No scoreboard available for POV Demos</h1>
-          <p>Recorded by: <span id="recordedBySpan">N/A</span></p>
-        </div>
-      </div>
-
-      <!-- Instructions Above Buttons -->
-      <!-- <p class="instructions">If the information above is expected, proceed below.</p> -->
-
-      <!-- Buttons -->
-      <div class="button-container">
-        <button id="backBtn" class="btn btn-danger">Back</button>
-        <button id="nextBtn" class="btn btn-primary">Next</button>
-      </div>
-    </div>
-
-    <script src="./renderer.js"></script>
-  </body>
+        <script type="module" src="./renderer.js"></script>
+    </body>
 </html>

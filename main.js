@@ -1,13 +1,33 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron/main");
-const { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } = require("@laihoe/demoparser2");
-const path = require("node:path");
-const { readFileSync } = require("node:fs");
+import { app, BrowserWindow, ipcMain, dialog, Menu, MenuItem } from "electron";
+import * as nodePath from "node:path";
+import { readFileSync } from "node:fs";
+import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
+import { debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
+import { Worker } from "worker_threads";
+
 let mainWindow;
+let currentMap = "de_mirage"; //placeholder
+let demoFilePath;
+let demoFileBuffer;
+
+function runWorker(task, buffer) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker("./parseWorker.js", {
+      workerData: { task, buffer },
+    });
+
+    worker.on("message", resolve);
+    worker.on("error", reject),
+      worker.on("exit", (code) => {
+        if (code !== 0) reject(new Error("Worker stopped with exit code:", code));
+      });
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: nodePath.join(nodePath.resolve(), "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       enableBlinkFeatures: "none",
@@ -33,72 +53,37 @@ app.whenReady().then(() => {
 
   ipcMain.handle("demo:preview", (_, demoPath) => {
     console.log("Previewing demo:", demoPath);
-    const header = parseHeader(demoPath);
-    const players = parsePlayerInfo(demoPath);
-    const events = listGameEvents(demoPath);
+
+    // Read file into buffer.
+    demoFileBuffer = readFileSync(demoPath);
+    demoFilePath = demoPath;
+
+    const { header, players, events, roundEnds } = previewDemo(demoFileBuffer);
+
+    currentMap = header.map_name;
 
     // Let's get the score
-    const roundEnds = parseEvents(demoPath, ["round_end"]);
 
-    const mapDataPath = path.join(app.getAppPath(), "map-data", "map-data.json");
-    let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
-    let thisMapData = mapData[header.map_name];
-
-    return { mapdata: thisMapData, header: header, players: players, roundEnds: roundEnds, events: events };
+    return {
+      header: header,
+      players: players,
+      roundEnds: roundEnds,
+      events: events,
+    };
   });
 
-  ipcMain.handle("demo:process", (_, path) => {
-    console.log("Processing demo:", path);
+  ipcMain.handle("demo:process", async () => {
+    console.log("Processing demo:", demoFilePath);
 
-    const ticks = parseTicks(path, ["X", "Y", "team_num", "yaw", "is_alive", "rotation"]);
-    const grenades = parseGrenades(path);
+    const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
+    let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
+    let thisMapData = mapData[currentMap];
+    const { round_start_events, round_freeze_end_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end"]);
 
-    // grenadeActiveEvents
-    // const grenadeActivations = parseEvents(path, ["inferno_startburn", "inferno_expire", "smokegrenade_detonate", "flashbang_detonate", "decoy_detonate", "smokegrenade_expired", "hegrenade_detonate"]);
+    let [groupedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer), runWorker("grenades", demoFileBuffer)]);
 
-    // Combine tick data into 1 object per tick
-
-    let groupedTicks = {};
-    ticks.forEach((data) => {
-      if (!groupedTicks[data.tick]) {
-        groupedTicks[data.tick] = { players: [], grenades: [], nadePaths: {} };
-      }
-
-      const playerExists = groupedTicks[data.tick].players.some((player) => player.name === data.name);
-
-      if (!playerExists) {
-        groupedTicks[data.tick].players.push({
-          name: data.name,
-          X: data.X,
-          Y: data.Y,
-          yaw: data.yaw,
-          team_num: data.team_num,
-          alive: data.is_alive,
-        });
-      }
-    });
-
-    grenades.forEach((nade) => {
-      // console.log(nade.grenade_entity_id);
-      if (nade.x != null && nade.y != null) {
-        if (!groupedTicks[nade.tick]) {
-          groupedTicks[nade.tick] = {
-            players: [],
-            grenades: [],
-          };
-        }
-
-        // Add to the current tick's grenade list
-        groupedTicks[nade.tick].grenades.push({
-          id: nade.grenade_entity_id,
-          type: nade.grenade_type,
-          name: nade.name,
-          x: nade.x,
-          y: nade.y,
-          z: nade.z,
-        });
-      }
-    });
+    // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
+    groupedTicks = processGrenades(grenades, groupedTicks);
 
     // let nadeFlightPaths = {};
 
@@ -165,7 +150,17 @@ app.whenReady().then(() => {
     //   }
     // });
 
-    return { ticks: groupedTicks, nades: grenades };
+    const returnObj = {
+      ticks: groupedTicks,
+      // nades: grenades,
+      roundStarts: round_start_events,
+      freezeEnds: round_freeze_end_events,
+      mapData: thisMapData,
+    };
+
+    console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
+
+    return returnObj;
   });
 
   console.log("Initialising Window...");
