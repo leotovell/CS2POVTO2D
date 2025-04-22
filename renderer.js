@@ -1,4 +1,5 @@
 // const { enableLoader, disableLoader } = require("./js/ui");
+import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap } from "./js/demo.js";
 import { enableLoader, disableLoader, setElementVisible } from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
 
@@ -127,29 +128,25 @@ function initDemoPreviewPage() {
 }
 
 async function initDemoReviewPage() {
+  // Define all HTML elements
   const loader = document.getElementById("loader");
   const loaderText = document.getElementById("loader-text");
   const currentTickSpan = document.getElementById("currentTickSpan");
+  const canvas = document.getElementById("minimap");
+  const ctx = canvas.getContext("2d");
+  const speedMultiplierSelect = document.getElementById("speedMultiplierSelect");
+  const scrubBar = document.getElementById("scrubBar");
+  const playPauseBtn = document.getElementById("playPauseBtn");
 
   // Process and store the demo ticks
   enableLoader(loader, loaderText, "Processing Demo...");
-  const demoTicks = await window.electron.processDemo();
-  window.demoTicks = demoTicks.ticks;
-  window.nades = demoTicks.nades;
-  window.nadeFlightPaths = demoTicks.nadeFlightPaths;
-  let roundStarts = demoTicks.roundStarts;
-  let freezeEnds = demoTicks.freezeEnds;
+  const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map } = await window.electron.processDemo();
   disableLoader(loader);
 
-  const canvas = document.getElementById("minimap");
-  const ctx = canvas.getContext("2d");
-  const ticks = window.demoTicks;
-  // const map = JSON.parse(localStorage.getItem("demoMapData"));
-  const map = demoTicks.mapData;
+  loadCanvasVars(canvas, ctx);
+  loadMapVars(map);
 
-  const roundTimeMins = document.getElementById("roundTimeMinutes");
-  const roundTimeSecs = document.getElementById("roundTimeSeconds");
-
+  // Flags
   const tickrate = 64;
   let i = 0;
   let paused = false;
@@ -157,259 +154,35 @@ async function initDemoReviewPage() {
   let animationTimeout;
   let wasPlayingBeforeScrub = false;
 
-  const speedMultiplierSelect = document.getElementById("speedMultiplierSelect");
+  // Basic event listeners
   let speedMultiplier = parseFloat(speedMultiplierSelect.value);
   speedMultiplierSelect.onchange = (e) => {
     speedMultiplier = parseFloat(e.target.value);
   };
 
-  const scrubBar = document.getElementById("scrubBar");
-  const playPauseBtn = document.getElementById("playPauseBtn");
-  const backgroundDiv = document.getElementById("scrubBarBackground");
-
+  // Loading the map image background and beginning the replay!
   const mapImg = new Image();
   mapImg.src = "map-data/" + localStorage.getItem("demoMapName") + ".png";
 
   mapImg.onload = () => {
+    // sort the ticks into ascending order
     const tickKeys = Object.keys(ticks)
       .map(Number)
       .sort((a, b) => a - b);
+
+    // Work out what the last tick is, to calculate various timers etc
     const lastTick = tickKeys[tickKeys.length - 1];
 
-    /**
-     * @description Updates the `Round Timer`, `Current Round` UI elements.
-     * @author Leo Tovell
-     *
-     * @param {Number} currentTick
-     */
-    function updateRoundInfo(currentTick) {
-      // find latest round start
-      let lastRoundStart = -Infinity;
-      for (const num of roundStarts) {
-        if (num <= currentTick && num > lastRoundStart) {
-          lastRoundStart = num;
-        }
-      }
-
-      let lastFreezeEnds = -Infinity;
-      for (const num of freezeEnds) {
-        if (num <= currentTick && num > lastFreezeEnds) {
-          lastFreezeEnds = num;
-        }
-      }
-      // Conditional: if lastRoundStart > lastFreezeEnds then pause the timer at 1:55s (we are in a freeze time or a timeout)
-      if (lastRoundStart > lastFreezeEnds) {
-        roundTimeMins.innerHTML = "1";
-        roundTimeSecs.innerHTML = "55";
-      } else {
-        // work out round tick
-        let roundTick = currentTick - lastFreezeEnds;
-
-        // Divide to get the current seconds elapsed
-        let secondsElapsedInRound = roundTick / 64;
-
-        // Minus from total round allowance (default = 115s (1m55s))
-        let roundTimeRemaining = 115 - secondsElapsedInRound;
-
-        // Work out minutes + seconds and change HTML values;
-        roundTimeMins.innerHTML = Math.floor(roundTimeRemaining / 60);
-        roundTimeSecs.innerHTML = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
-      }
-    }
-
-    function renderRoundSegments(tickList, totalTicks) {
-      const barWidth = scrubBar.offsetWidth;
-      backgroundDiv.innerHTML = ""; // Clear previous
-
-      for (let i = 0; i < tickList.length - 1; i++) {
-        const startTick = tickList[i];
-        const endTick = tickList[i + 1];
-
-        const startPercent = startTick / totalTicks;
-        const endPercent = endTick / totalTicks;
-        const segmentWidth = (endPercent - startPercent) * barWidth;
-
-        const segment = document.createElement("div");
-        segment.style.position = "absolute";
-        segment.style.left = `${startPercent * 100}%`;
-        segment.style.width = `${segmentWidth}px`;
-        segment.style.height = "100%";
-        segment.style.background = i % 2 === 0 ? "#f0f0f0" : "#e0e0e0";
-        backgroundDiv.appendChild(segment);
-      }
-    }
-
     renderRoundSegments(roundStarts, lastTick);
-
-    function worldToMap(x, y, map) {
-      const offsetX = map.pos_x;
-      const offsetY = map.pos_y;
-      const scale = map.scale;
-      const mapX = (x - offsetX) / scale;
-      const mapY = (offsetY - y) / scale;
-      return [mapX, mapY];
-    }
-
-    function updateScrubBar(currentTick) {
-      scrubBar.max = lastTick;
-      scrubBar.value = currentTick;
-    }
-
-    function seekToDemoTime(scrubbedTick) {
-      let newIndex = tickKeys.indexOf(scrubbedTick);
-      if (newIndex === -1) {
-        // fallback to closest tick
-        newIndex = tickKeys.findIndex((tick) => tick >= scrubbedTick);
-        if (newIndex === -1) newIndex = tickKeys.length - 1;
-      }
-      i = newIndex;
-    }
-
-    function drawCurrentTickFrame() {
-      const tickKey = tickKeys[i];
-      const tick = ticks[tickKey];
-
-      // update the round timer
-      updateRoundInfo(tickKey);
-
-      currentTickSpan.innerHTML = tickKey + " of " + lastTick;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(mapImg, 0, 0, canvas.width, canvas.height);
-
-      if (tick && tick.players) {
-        for (const player of tick.players) {
-          const [x, y] = worldToMap(player.X, player.Y, map);
-
-          // Draw the player name above the player marker
-          ctx.font = "12px Arial";
-          ctx.fillStyle = "white";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "bottom";
-          ctx.fillText(player.name, x, y - 10);
-
-          // Draw directional line (yaw)
-          const lineLength = 10;
-
-          let yawDeg = player.yaw; // CS2 yaw
-          let fixedYawRad = -yawDeg * (Math.PI / 180); // Invert to match canvas trig
-
-          const dx = lineLength * Math.cos(fixedYawRad);
-          const dy = lineLength * Math.sin(fixedYawRad);
-
-          const new_x = x + dx;
-          const new_y = y + dy;
-
-          if (player.alive === true) {
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(new_x, new_y);
-            ctx.strokeStyle = "blue";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-          }
-
-          // Draw the player circle on top
-          ctx.beginPath();
-          ctx.arc(x, y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = player.team_num == 2 ? "orange" : "blue";
-          if (player.alive == false) {
-            ctx.fillStyle = "gray";
-          }
-          ctx.fill();
-        }
-      }
-
-      if (tick && tick.grenades) {
-        tick.grenades.forEach((nade) => {
-          const [x, y] = worldToMap(nade.x, nade.y, map);
-
-          ctx.beginPath();
-          ctx.arc(x, y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = "teal";
-          ctx.fill();
-        });
-      }
-
-      // if (tick && tick.nadePaths) {
-      //   for (const nadeId in tick.nadePaths) {
-      //     const nadeData = tick.nadePaths[nadeId];
-      //     const path = nadeData.path;
-      //     const activatedTick = nadeData.detonateTick ?? Infinity; // fallback if not set
-
-      //     // Draw the path as a line
-      //     if (path.length > 1) {
-      //       ctx.beginPath();
-      //       for (let i = 0; i < path.length - 1; i++) {
-      //         const [x1, y1] = worldToMap(path[i].x, path[i].y, map);
-      //         const [x2, y2] = worldToMap(path[i + 1].x, path[i + 1].y, map);
-
-      //         ctx.moveTo(x1, y1);
-      //         ctx.lineTo(x2, y2);
-      //       }
-
-      //       // Set color based on grenade type
-      //       switch (nadeData.type) {
-      //         case "CHEGrenadeProjectile":
-      //           ctx.strokeStyle = "purple";
-      //           break;
-      //         case "CSmokeGrenadeProjectile":
-      //           ctx.strokeStyle = "teal";
-      //           break;
-      //         case "CFlashbangGrenadeProjectile":
-      //           ctx.strokeStyle = "white";
-      //           break;
-      //         case "CInfernoGrenadeProjectile":
-      //         case "CMolotovGrenadeProjectile":
-      //           ctx.strokeStyle = "coral";
-      //           break;
-      //         default:
-      //           ctx.strokeStyle = "gray";
-      //           break;
-      //       }
-
-      //       ctx.lineWidth = 2;
-      //       ctx.setLineDash([4, 2]); // dotted line
-      //       ctx.stroke();
-      //       ctx.setLineDash([]); // reset dash
-      //     }
-
-      //     // Draw the bloom/activation circle if it's this tick
-      //     if (tickKey === activatedTick) {
-      //       const lastPoint = path[path.length - 1];
-      //       const [bx, by] = worldToMap(lastPoint.x, lastPoint.y, map);
-
-      //       ctx.beginPath();
-      //       ctx.arc(bx, by, 15, 0, 2 * Math.PI);
-
-      //       switch (nadeData.type) {
-      //         case "CSmokeGrenadeProjectile":
-      //           ctx.fillStyle = "rgba(0, 128, 128, 0.3)"; // semi-transparent teal
-      //           break;
-      //         case "CFlashbangGrenadeProjectile":
-      //           ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-      //           break;
-      //         case "CInfernoGrenadeProjectile":
-      //         case "CMolotovGrenadeProjectile":
-      //           ctx.fillStyle = "rgba(255, 127, 80, 0.4)";
-      //           break;
-      //         default:
-      //           ctx.fillStyle = "rgba(200, 200, 200, 0.3)";
-      //           break;
-      //       }
-
-      //       ctx.fill();
-      //     }
-      //   }
-      // }
-
-      updateScrubBar(tickKey);
-    }
 
     function drawFrame() {
       if (paused || isScrubbing) return;
 
-      drawCurrentTickFrame(); // just render
+      const tickKey = tickKeys[i];
+      const tick = ticks[tickKey];
+
+      // drawCurrentTickFrame(); // just render
+      drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImg);
       const tickDurationMs = 1000 / speedMultiplier / tickrate;
 
       i++;
@@ -435,8 +208,10 @@ async function initDemoReviewPage() {
       clearTimeout(animationTimeout); // Stop any current animation
 
       const newTick = parseInt(scrubBar.value);
-      seekToDemoTime(newTick);
-      drawCurrentTickFrame(); // Just render the frame without resuming playback
+      i = seekToDemoTime(newTick, tickKeys);
+      const tickKey = tickKeys[i];
+      const tick = ticks[tickKey];
+      drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImg); // Just render the frame without resuming playback
     });
 
     scrubBar.addEventListener("change", () => {

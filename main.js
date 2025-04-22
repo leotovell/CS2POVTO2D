@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu, MenuItem } from "electron";
 import * as nodePath from "node:path";
 import { readFileSync } from "node:fs";
 import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
@@ -80,47 +80,10 @@ app.whenReady().then(() => {
     let thisMapData = mapData[currentMap];
     const { round_start_events, round_freeze_end_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end"]);
 
-    // let [groupedTicks, grenades] = await Promise.all([
-    //   new Promise((resolve) => {
-    //     console.log("Processing Ticks!");
-    //     const ticks = processBasicTicks(demoFileBuffer);
-    //     resolve(ticks);
-    //   }),
-    //   new Promise((resolve) => {
-    //     console.log("Processing Nades!");
-    //     const grenades = debugTime("parseGrenades", () => parseGrenades(demoFileBuffer));
-    //     resolve(grenades);
-    //   }),
-    // ]);
-
     let [groupedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer), runWorker("grenades", demoFileBuffer)]);
 
-    // Combine ticks into 1 object so 1 tick has all required data.
-    // let groupedTicks = processBasicTicks(demoFileBuffer);
-
-    // groupedTicks = processGrenades(demoFileBuffer, groupedTicks);
+    // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
     groupedTicks = processGrenades(grenades, groupedTicks);
-
-    // grenades.forEach((nade) => {
-    //   if (nade.x != null && nade.y != null) {
-    //     if (!groupedTicks[nade.tick]) {
-    //       groupedTicks[nade.tick] = {
-    //         players: [],
-    //         grenades: [],
-    //       };
-    //     }
-
-    //     // Add to the current tick's grenade list
-    //     groupedTicks[nade.tick].grenades.push({
-    //       id: nade.grenade_entity_id,
-    //       type: nade.grenade_type,
-    //       name: nade.name,
-    //       x: nade.x,
-    //       y: nade.y,
-    //       z: nade.z,
-    //     });
-    //   }
-    // });
 
     // let nadeFlightPaths = {};
 
