@@ -9,6 +9,8 @@ const backgroundDiv = document.getElementById("scrubBarBackground");
 const currentTickSpan = document.getElementById("currentTickSpan");
 const scrubBar = document.getElementById("scrubBar");
 
+import { tickStore } from "../renderer.js";
+
 let canvas;
 let ctx;
 let map;
@@ -162,7 +164,12 @@ export function seekToDemoTime(scrubbedTick, tickKeys) {
     newIndex = tickKeys.findIndex((tick) => tick >= scrubbedTick);
     if (newIndex === -1) newIndex = tickKeys.length - 1;
   }
-  return newIndex;
+  tickStore.currentTick = newIndex;
+}
+
+export function goToRound(roundNumber, roundStarts) {
+  // Round ticks are stored in the variable (roundStarts) - can identify knife rounds later.
+  tickStore.currentTick = roundStarts[roundNumber];
 }
 
 export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImage) {
