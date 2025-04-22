@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, MenuItem } from "electron";
 import * as nodePath from "node:path";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFile } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
 import { debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
 import { Worker } from "worker_threads";
@@ -9,6 +10,15 @@ let mainWindow;
 let currentMap = "de_mirage"; //placeholder
 let demoFilePath;
 let demoFileBuffer;
+let isPreprocessed = false;
+
+// global vars for demo data
+
+let demoHeader;
+let demoScoreboard;
+let demoTicks;
+let demoEvents;
+let demoMapData;
 
 function runWorker(task, buffer) {
   return new Promise((resolve, reject) => {
@@ -45,122 +55,139 @@ app.whenReady().then(() => {
           name: "Demo File",
           extensions: ["dem"],
         },
+        { name: "Pre-processed Demos", extensions: ["json"] },
       ],
       title: "Choose Demo",
     });
     return result.filePaths;
   });
 
-  ipcMain.handle("demo:preview", (_, demoPath) => {
+  ipcMain.handle("demo:preview", async (_, demoPath) => {
     console.log("Previewing demo:", demoPath);
 
-    // Read file into buffer.
-    demoFileBuffer = readFileSync(demoPath);
     demoFilePath = demoPath;
 
-    const { header, players, events, roundEnds } = previewDemo(demoFileBuffer);
+    // Identify if its a .dem or .json
+    if (demoPath.endsWith(".dem")) {
+      // Read file into buffer.
+      demoFileBuffer = readFileSync(demoPath);
 
-    currentMap = header.map_name;
+      const { header, players } = previewDemo(demoFileBuffer);
+      demoHeader = header;
 
-    // Let's get the score
+      currentMap = header.map_name;
+
+      // Let's get the score
+
+      let game_phase_events = parseEvent(demoFileBuffer, "round_end", [], ["game_phase", "team_rounds_total", "team_clan_name"]);
+      let end_event = game_phase_events.filter((e) => e.game_phase == 5);
+      let teamAScore = end_event[0].t_team_rounds_total;
+      let teamBScore = end_event[0].ct_team_rounds_total;
+      let teamAName = end_event[0].t_team_clan_name;
+      let teamBName = end_event[0].ct_team_clan_name;
+
+      demoScoreboard = {
+        teamAlpha: {
+          name: teamAName,
+          players: players.filter((player) => player.team_number == 2),
+          score: teamAScore,
+        },
+        teamBeta: {
+          name: teamBName,
+          players: players.filter((player) => player.team_number == 3),
+          score: teamBScore,
+        },
+      };
+    } else if (demoPath.endsWith(".json")) {
+      // Read it in
+      try {
+        const data = await readFile(demoPath, "utf-8");
+        const importedDemo = JSON.parse(data);
+        demoHeader = importedDemo.header;
+        demoScoreboard = importedDemo.scoreboard;
+        demoTicks = importedDemo.ticks;
+        demoEvents = importedDemo.events;
+        demoMapData = importedDemo.mapdata;
+        const preview = JSON.stringify(importedDemo, null, 2).split("\n").slice(0, 200).join("\n");
+        console.log(preview);
+      } catch (err) {
+        console.error("Error reading/parsing .json:", err);
+      }
+    }
 
     return {
-      header: header,
-      players: players,
-      roundEnds: roundEnds,
-      events: events,
+      header: demoHeader,
+      scoreboard: demoScoreboard,
     };
   });
 
   ipcMain.handle("demo:process", async () => {
     console.log("Processing demo:", demoFilePath);
 
-    const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
-    let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
-    let thisMapData = mapData[currentMap];
-    const { round_start_events, round_freeze_end_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end"]);
+    if (demoFilePath.endsWith(".dem")) {
+      const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
+      let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
+      let thisMapData = mapData[currentMap];
+      const { round_start_events, round_freeze_end_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end"]);
 
-    let [groupedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer), runWorker("grenades", demoFileBuffer)]);
+      let [processedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer), runWorker("grenades", demoFileBuffer)]);
 
-    // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
-    groupedTicks = processGrenades(grenades, groupedTicks);
+      // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
+      demoTicks = processGrenades(grenades, processedTicks);
+      demoEvents = {
+        roundStarts: round_start_events,
+        freezeEnds: round_freeze_end_events,
+      };
+      demoMapData = thisMapData;
 
-    // let nadeFlightPaths = {};
+      const returnObj = {
+        ticks: demoTicks,
+        // nades: grenades,
+        roundStarts: round_start_events,
+        freezeEnds: round_freeze_end_events,
+        mapData: thisMapData,
+      };
 
-    // Object.entries(groupedTicks).forEach(([tickNum, tick]) => {
-    //   // Let's go through each nade and compile the flightPaths
-    //   const nades = tick.grenades;
-    //   // console.log(nades);
-    //   nades.forEach((nade) => {
-    //     if (!nadeFlightPaths[nade.id]) {
-    //       nadeFlightPaths[nade.id] = {
-    //         path: {},
-    //         detonation_tick: null,
-    //         expire_tick: null,
-    //       };
-    //     }
+      console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
 
-    //     nadeFlightPaths[nade.id].path[tickNum] = [nade.x, nade.y];
-    //   });
-    // });
+      return returnObj;
+    } else if (demoFilePath.endsWith(".json")) {
+      const returnObj = {
+        ticks: demoTicks,
+        roundStarts: demoEvents.roundStarts,
+        freezeEnds: demoEvents.freezeEnds,
+        mapData: demoMapData,
+      };
 
-    // // console.log(nadeFlightPaths);
+      console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
+      return returnObj;
+    }
+  });
 
-    // grenadeActivations.forEach((event) => {
-    //   const nade = nadeFlightPaths[event.entityid];
-    //   if (!nade) {
-    //     console.log("ERROR NO NADE");
-    //     // console.log(event);
-    //   }
+  ipcMain.handle("demo:saveProcessedDemo", async () => {
+    let fileName = demoFilePath.split("\\").slice(-1)[0];
+    let fileNameWithoutExt = fileName.endsWith(".dem") ? fileName.slice(0, -4) : fileName;
+    let processedDemoFilePath = nodePath.join("saved", fileNameWithoutExt + ".json");
+    console.log("Saving demo here:", processedDemoFilePath);
 
-    //   switch (event.event_name) {
-    //     case "smokegrenade_detonate":
-    //     case "flashbang_detonate":
-    //     case "decoy_detonate":
-    //     case "hegrenade_detonate":
-    //     case "inferno_startburn":
-    //       nade.detonation_tick = event.tick;
-    //       break;
-
-    //     case "smokegrenade_expired":
-    //     case "inferno_expire":
-    //       nade.expire_tick = event.tick;
-    //       break;
-    //   }
-    // });
-
-    // Attach detonation/expiration events to nade paths
-    // grenadeActivations.forEach((event) => {
-    //   const nade = nadePathsById[event.entityid];
-    //   if (!nade) return;
-
-    //   switch (event.event_name) {
-    //     case "smokegrenade_detonate":
-    //     case "flashbang_detonate":
-    //     case "decoy_detonate":
-    //     case "hegrenade_detonate":
-    //     case "inferno_startburn":
-    //       nade.detonateTick = event.tick;
-    //       break;
-
-    //     case "smokegrenade_expired":
-    //     case "inferno_expire":
-    //       nade.expireTick = event.tick;
-    //       break;
-    //   }
-    // });
-
-    const returnObj = {
-      ticks: groupedTicks,
-      // nades: grenades,
-      roundStarts: round_start_events,
-      freezeEnds: round_freeze_end_events,
-      mapData: thisMapData,
+    let processedDemo = {
+      header: demoHeader,
+      scoreboard: demoScoreboard,
+      ticks: demoTicks,
+      events: demoEvents,
+      mapdata: demoMapData,
     };
 
-    console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
-
-    return returnObj;
+    writeFile(processedDemoFilePath, JSON.stringify(processedDemo), "utf-8", (err) => {
+      if (err) {
+        console.error("Error writing:", processedDemoFilePath);
+        console.error(err);
+        return false;
+      } else {
+        console.log("Successfully wrote:", processedDemoFilePath);
+        return true;
+      }
+    });
   });
 
   console.log("Initialising Window...");

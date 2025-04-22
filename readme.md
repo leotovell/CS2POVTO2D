@@ -66,3 +66,8 @@ _name = in development_<br>
 3. Run either:
    - `dist/win-unpacked/demoreview.exe` (runs in place, no installation), or
    - `dist/demoreview Setup 1.0.0.exe` to install on your system.
+
+### Third-Party Libraries/Resources
+
+- [demoparser](https://github.com/LaihoE/demoparser) by @laihoe
+- [cs2-map-images](https://github.com/ghostcap-gaming/cs2-map-images) collection
