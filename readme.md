@@ -25,8 +25,8 @@ _name = in development_<br>
 | -> Firing Indicator   |    ~    |    ~     |
 | **Usability/QOL**     |
 | -> Scrubbing          | &check; | &check;  |
-| -> Round Timer        | &check; | &check;  |
-| -> Skip To Round      |   Leo   |   Leo    |
+| -> Round Timer        | &cross; | &check;  |
+| -> Skip To Round      | &cross; | &check;  |
 
 ## Installation
 
