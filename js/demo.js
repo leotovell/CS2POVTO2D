@@ -9,7 +9,7 @@ const backgroundDiv = document.getElementById("scrubBarBackground");
 const currentTickSpan = document.getElementById("currentTickSpan");
 const scrubBar = document.getElementById("scrubBar");
 
-import { tickStore } from "../renderer.js";
+import { settings, tickStore } from "../renderer.js";
 
 let canvas;
 let ctx;
@@ -173,7 +173,6 @@ export function goToRound(roundNumber, roundStarts) {
 }
 
 export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImage) {
-  console.log(tickKey);
   updateRoundInfo(tickKey, roundStarts, freezeEnds);
 
   currentTickSpan.innerHTML = tickKey + " of " + lastTick;
@@ -185,13 +184,17 @@ export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapIm
   if (tick) {
     if (tick.players) {
       for (const player of tick.players) {
-        drawPlayer(player);
+        if (!settings.hiddenPlayers.has(player.name)) {
+          drawPlayer(player);
+        }
       }
     }
 
     if (tick.grenades) {
       for (const nade of tick.grenades) {
-        drawGrenade(nade);
+        if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
+          drawGrenade(nade);
+        }
       }
     }
   }

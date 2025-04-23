@@ -1,6 +1,6 @@
 // const { enableLoader, disableLoader } = require("./js/ui");
 import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap, goToRound } from "./js/demo.js";
-import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement } from "./js/ui.js";
+import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners } from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -98,20 +98,7 @@ function initDemoPreviewPage() {
     teamBScoreSpan.className = teamBScore > teamAScore ? "text-success" : "text-danger";
     teamBNameSpan.innerHTML = teamBName;
 
-    // Place players on each side
-    // if (demoScoreboard) {
-    //   demoScoreboard.forEach((player) => {
-    //     let entry = document.createElement("div");
-    //     entry.className = "col";
-    //     entry.innerHTML = player.name;
-    //     if (player.team_number === 2) {
-    //       previewTeamAPlayerDiv.append(entry);
-    //     } else if (player.team_number === 3) {
-    //       previewTeamBPlayerDiv.append(entry);
-    //     }
-    //     entry.style.margin = "0";
-    //   });
-    // }
+    // Add players to scoreboard
     if (demoScoreboard) {
       demoScoreboard.teamAlpha.players.forEach((player) => {
         let entry = document.createElement("div");
@@ -162,6 +149,20 @@ export let tickStore = {
   currentRound: 0,
 };
 
+export let settings = {
+  // Player Filter Settings
+  hiddenPlayers: new Set(),
+  showNadesThrownByHiddenPlayers: false,
+
+  // Render/Animation Settings
+  showShootingTracers: false,
+};
+
+export let settingsToConfigure = [
+  { name: "showNadesThrownByHiddenPlayers", type: "checkbox", defaultValue: false },
+  { name: "showShootingTracers", type: "checkbox", defaultValue: true },
+];
+
 async function initDemoReviewPage() {
   // Define all HTML elements
   const loader = document.getElementById("loader");
@@ -186,11 +187,15 @@ async function initDemoReviewPage() {
   enableLoader(loader, loaderText, "Processing Demo...");
   // const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map } = await window.electron.processDemo();
   const res = await fetch("http://localhost:3000/api/demo/process");
-  const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map } = await res.json();
+  const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map, scoreboard } = await res.json();
   disableLoader(loader);
-
   loadCanvasVars(canvas, ctx);
   loadMapVars(map);
+
+  // Set up the player filters checkboxes
+  const playerFiltersModal = document.getElementById("playerFiltersModalTeamBox");
+  setupPlayerFiltersModal(playerFiltersModal, scoreboard);
+  setupSettingsListeners();
 
   // Flags
   const tickrate = 64;

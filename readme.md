@@ -27,6 +27,8 @@ _name = in development_<br>
 | -> Scrubbing          | &check; | &check;  |
 | -> Round Timer        | &cross; | &check;  |
 | -> Skip To Round      | &cross; | &check;  |
+| -> Player Filters     |   Leo   |   Leo    |
+| -> Round Filters      |   Leo   |   Leo    |
 
 ## Installation
 
