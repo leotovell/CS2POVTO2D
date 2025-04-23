@@ -18,8 +18,10 @@
     },
     "dependencies": {
         "@laihoe/demoparser2": "^0.38.3",
+        "body-parser": "^2.2.0",
         "bootstrap": "^5.3.5",
         "bootstrap-icons": "^1.11.3",
+        "express": "^5.1.0",
         "jquery": "^3.7.1"
     },
     "build": {
