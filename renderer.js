@@ -184,7 +184,9 @@ async function initDemoReviewPage() {
 
   // Process and store the demo ticks
   enableLoader(loader, loaderText, "Processing Demo...");
-  const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map } = await window.electron.processDemo();
+  // const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map } = await window.electron.processDemo();
+  const res = await fetch("http://localhost:3000/api/demo/process");
+  const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map } = await res.json();
   disableLoader(loader);
 
   loadCanvasVars(canvas, ctx);

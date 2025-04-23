@@ -5,6 +5,9 @@ import { readFile } from "node:fs/promises";
 import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
 import { debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
 import { Worker } from "worker_threads";
+import express from "express";
+import { Readable } from "node:stream";
+import bodyParser from "body-parser";
 
 let mainWindow;
 let currentMap = "de_mirage"; //placeholder
@@ -33,6 +36,62 @@ function runWorker(task, buffer) {
       });
   });
 }
+
+// Set up HTTP server
+const api = express();
+api.use(bodyParser.json({ limit: "500mb" }));
+
+api.get("/api/demo/process", async (req, res) => {
+  console.log("here");
+  res.setHeader("Content-Type", "application/json");
+
+  let returnObj;
+
+  if (demoFilePath.endsWith(".dem")) {
+    const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
+    let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
+    let thisMapData = mapData[currentMap];
+    const { round_start_events, round_freeze_end_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end"]);
+
+    let [processedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer), runWorker("grenades", demoFileBuffer)]);
+
+    // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
+    demoTicks = processGrenades(grenades, processedTicks);
+    demoEvents = {
+      roundStarts: round_start_events,
+      freezeEnds: round_freeze_end_events,
+    };
+    demoMapData = thisMapData;
+
+    returnObj = {
+      ticks: demoTicks,
+      // nades: grenades,
+      roundStarts: round_start_events,
+      freezeEnds: round_freeze_end_events,
+      mapData: thisMapData,
+    };
+
+    console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
+
+    // return returnObj;
+  } else if (demoFilePath.endsWith(".json")) {
+    returnObj = {
+      ticks: demoTicks,
+      roundStarts: demoEvents.roundStarts,
+      freezeEnds: demoEvents.freezeEnds,
+      mapData: demoMapData,
+    };
+
+    console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
+    // return returnObj;
+  }
+
+  res.json(returnObj);
+});
+
+api.listen(3000, () => {
+  console.log("API listening on port http://localhost:3000");
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -108,8 +167,6 @@ app.whenReady().then(() => {
         demoTicks = importedDemo.ticks;
         demoEvents = importedDemo.events;
         demoMapData = importedDemo.mapdata;
-        const preview = JSON.stringify(importedDemo, null, 2).split("\n").slice(0, 200).join("\n");
-        console.log(preview);
       } catch (err) {
         console.error("Error reading/parsing .json:", err);
       }
