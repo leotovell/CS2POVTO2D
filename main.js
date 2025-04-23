@@ -178,49 +178,6 @@ app.whenReady().then(() => {
     };
   });
 
-  ipcMain.handle("demo:process", async () => {
-    console.log("Processing demo:", demoFilePath);
-
-    if (demoFilePath.endsWith(".dem")) {
-      const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
-      let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
-      let thisMapData = mapData[currentMap];
-      const { round_start_events, round_freeze_end_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end"]);
-
-      let [processedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer), runWorker("grenades", demoFileBuffer)]);
-
-      // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
-      demoTicks = processGrenades(grenades, processedTicks);
-      demoEvents = {
-        roundStarts: round_start_events,
-        freezeEnds: round_freeze_end_events,
-      };
-      demoMapData = thisMapData;
-
-      const returnObj = {
-        ticks: demoTicks,
-        // nades: grenades,
-        roundStarts: round_start_events,
-        freezeEnds: round_freeze_end_events,
-        mapData: thisMapData,
-      };
-
-      console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
-
-      return returnObj;
-    } else if (demoFilePath.endsWith(".json")) {
-      const returnObj = {
-        ticks: demoTicks,
-        roundStarts: demoEvents.roundStarts,
-        freezeEnds: demoEvents.freezeEnds,
-        mapData: demoMapData,
-      };
-
-      console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
-      return returnObj;
-    }
-  });
-
   ipcMain.handle("demo:saveProcessedDemo", async () => {
     let fileName = demoFilePath.split("\\").slice(-1)[0];
     let fileNameWithoutExt = fileName.endsWith(".dem") ? fileName.slice(0, -4) : fileName;
