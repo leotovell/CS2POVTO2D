@@ -69,6 +69,7 @@ api.get("/api/demo/process", async (req, res) => {
       roundStarts: round_start_events,
       freezeEnds: round_freeze_end_events,
       mapData: thisMapData,
+      scoreboard: demoScoreboard,
     };
 
     console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
@@ -80,6 +81,7 @@ api.get("/api/demo/process", async (req, res) => {
       roundStarts: demoEvents.roundStarts,
       freezeEnds: demoEvents.freezeEnds,
       mapData: demoMapData,
+      scoreboard: demoScoreboard,
     };
 
     console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
