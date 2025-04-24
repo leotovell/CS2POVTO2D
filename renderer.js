@@ -1,6 +1,6 @@
 // const { enableLoader, disableLoader } = require("./js/ui");
 import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap, goToRound } from "./js/demo.js";
-import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners } from "./js/ui.js";
+import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel } from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -156,7 +156,12 @@ export let settings = {
 
   // Render/Animation Settings
   showShootingTracers: false,
+
+  // Multi-round overlay
+  multiRoundOverlayMode: false,
 };
+
+// NEXT WORK ON LAYERING ROUNDS OVER EACH OTHER
 
 export let settingsToConfigure = [
   { name: "showNadesThrownByHiddenPlayers", type: "checkbox", defaultValue: false },
@@ -177,6 +182,29 @@ async function initDemoReviewPage() {
   const prevRoundBtn = document.getElementById("prevRoundBtn");
   const nextRoundBtn = document.getElementById("nextRoundBtn");
   const saveDemoBtn = document.getElementById("saveDemoBtn");
+  const roundsPanel = document.getElementById("roundsPanel");
+  const multiRoundOverlay = document.getElementById("multiRoundOverlay");
+  const exitMultiRoundModeBtn = document.getElementById("exit-multi-round-btn");
+  const multiRoundOverlayToggleBtn = document.getElementById("multiRoundOverlayToggleBtn");
+
+  multiRoundOverlayToggleBtn.addEventListener("click", () => {
+    // Show overlay
+    multiRoundOverlay.style.visibility = "visible";
+
+    // Shows rounds panel
+    roundsPanel.style.visibility = "visible";
+
+    // Hide enter multi-round button;
+    multiRoundOverlayToggleBtn.style.display = "none";
+  });
+
+  exitMultiRoundModeBtn.addEventListener("click", () => {
+    multiRoundOverlay.style.visibility = "hidden";
+
+    roundsPanel.style.visibility = "hidden";
+
+    multiRoundOverlayToggleBtn.style.display = "";
+  });
 
   saveDemoBtn.addEventListener("click", () => {
     const res = window.electron.saveProcessedDemo();
@@ -196,6 +224,7 @@ async function initDemoReviewPage() {
   const playerFiltersModal = document.getElementById("playerFiltersModalTeamBox");
   setupPlayerFiltersModal(playerFiltersModal, scoreboard);
   setupSettingsListeners();
+  setupMultiRoundsPanel(document.getElementById("multi-rounds-list"), roundStarts);
 
   // Flags
   const tickrate = 64;

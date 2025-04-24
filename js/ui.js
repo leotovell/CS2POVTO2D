@@ -55,6 +55,32 @@ export function enableElement(element) {
   element.disabled = false;
 }
 
+export function setupMultiRoundsPanel(element, rounds) {
+  // rounds is a list of freezeEnds
+  let roundCount = 0;
+  rounds.forEach((round) => {
+    roundCount++;
+    const roundListItem = document.createElement("li");
+    roundListItem.className = "list-group-item d-flex align-items-center";
+
+    const roundCheckbox = document.createElement("input");
+    roundCheckbox.type = "checkbox";
+    roundCheckbox.className = "form-check-input me-2";
+    roundCheckbox.id = "round_" + roundCount;
+    roundCheckbox.checked = true;
+
+    const roundLabel = document.createElement("label");
+    roundLabel.className = "form-check-label";
+    roundLabel.setAttribute("for", "round_" + roundCount);
+    roundLabel.innerHTML = "Round " + roundCount;
+
+    roundListItem.append(roundCheckbox);
+    roundListItem.append(roundLabel);
+
+    element.append(roundListItem);
+  });
+}
+
 export function setupPlayerFiltersModal(modal, scoreboard) {
   // Team 1 title
   // for()
