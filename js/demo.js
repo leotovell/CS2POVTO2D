@@ -180,25 +180,62 @@ export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapIm
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
 
-  // If tick exists, draw it's contents.
-  if (tick) {
-    if (tick.players) {
-      for (const player of tick.players) {
-        if (!settings.hiddenPlayers.has(player.name)) {
-          drawPlayer(player);
+  // NORMAL MODE - ROUND BY ROUND
+  if (!settings.multiRoundOverlayMode) {
+    // If tick exists, draw it's contents.
+    if (tick) {
+      if (tick.players) {
+        for (const player of tick.players) {
+          if (!settings.hiddenPlayers.has(player.name)) {
+            drawPlayer(player);
+          }
+        }
+      }
+
+      if (tick.grenades) {
+        for (const nade of tick.grenades) {
+          if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
+            drawGrenade(nade);
+          }
         }
       }
     }
 
-    if (tick.grenades) {
-      for (const nade of tick.grenades) {
-        if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
-          drawGrenade(nade);
+    scrubBar.max = lastTick;
+    scrubBar.value = tickKey;
+  } else {
+    // MULTIROUND MODE - OVERLAYED ALL ROUNDS SPECIFIED
+
+    // longest round tick
+    let longestRoundTicks = 0;
+    tickStore.multiRoundTicks.forEach((roundStartTick) => {
+      // Get the tick
+      const roundTick = tickStore.multiRoundMasterTick + roundStartTick;
+      // Get the data associated with the tick
+      const tickKey = tickStore.tickKeys[roundTick];
+      const tick = tickStore.tickData[tickKey];
+
+      if (tick) {
+        if (tick.players) {
+          for (const player of tick.players) {
+            if (!settings.hiddenPlayers.has(player.name)) {
+              drawPlayer(player);
+            }
+          }
+        }
+        if (tick.grenades) {
+          for (const nade of tick.grenades) {
+            if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
+              drawGrenade(nade);
+            }
+          }
         }
       }
-    }
+    });
+
+    // Finally update the scrub-bar, and incrememnt the master tick
+    scrubBar.max = longestRoundTicks;
+    scrubBar.value = tickStore.multiRoundMasterTick;
+    tickStore.multiRoundMasterTick++;
   }
-
-  scrubBar.max = lastTick;
-  scrubBar.value = tickKey;
 }

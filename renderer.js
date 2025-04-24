@@ -145,8 +145,12 @@ function initDemoPreviewPage() {
 }
 
 export let tickStore = {
+  tickKeys: null,
+  tickData: null,
   currentTick: 0,
   currentRound: 0,
+  multiRoundTicks: new Set(),
+  multiRoundMasterTick: 0,
 };
 
 export let settings = {
@@ -196,6 +200,8 @@ async function initDemoReviewPage() {
 
     // Hide enter multi-round button;
     multiRoundOverlayToggleBtn.style.display = "none";
+
+    settings.multiRoundOverlayMode = true;
   });
 
   exitMultiRoundModeBtn.addEventListener("click", () => {
@@ -204,11 +210,26 @@ async function initDemoReviewPage() {
     roundsPanel.style.visibility = "hidden";
 
     multiRoundOverlayToggleBtn.style.display = "";
+
+    settings.multiRoundOverlayMode = false;
   });
 
-  saveDemoBtn.addEventListener("click", () => {
-    const res = window.electron.saveProcessedDemo();
-    alert("Saving demo was", res ? "successful" : "unsuccessful");
+  // TODO
+  // Next we add event listeners to each roundListCheckbox so when it's checked we create/delete the tick_counter for it in tickStore.multiRoundTicks;
+  // Then need to adjust drawTick to account for multi-tick mode.
+  // Have a master tick, i.e currentTick for each round we do tickStore.multiRoundStartTicks.forEach(roundStartTick => tick = roundTick[currentTick + roundStartTick]) etc etc
+  // Always need to check when the round ends, so for example if we are viewing round 7 and 8, the scrub-bar MAX value is max([round+1.startTick - round.startTick, ...])
+  // Conditional for each round where we stop rendering each round after the indivual round tick exceeds round+1.startTick, as that's no longer the round we want to view - perhaps remove the players/nades? think about what to do with expired rounds.
+  // If this is slow - let's move some processing to the nodejs such as worldToMap is run on every coordinate - we could do it in the initial processing?
+
+  saveDemoBtn.addEventListener("click", async () => {
+    const res = await window.electron.saveProcessedDemo();
+    console.log(res);
+    if (res == true) {
+      alert("Demo saved successfully");
+    } else {
+      alert("Failed to save demo.");
+    }
   });
 
   // Process and store the demo ticks
@@ -216,6 +237,7 @@ async function initDemoReviewPage() {
   // const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map } = await window.electron.processDemo();
   const res = await fetch("http://localhost:3000/api/demo/process");
   const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map, scoreboard } = await res.json();
+  tickStore.tickData = ticks;
   disableLoader(loader);
   loadCanvasVars(canvas, ctx);
   loadMapVars(map);
@@ -248,6 +270,8 @@ async function initDemoReviewPage() {
     const tickKeys = Object.keys(ticks)
       .map(Number)
       .sort((a, b) => a - b);
+
+    tickStore.tickKeys = tickKeys;
 
     // Work out what the last tick is, to calculate various timers etc
     const lastTick = tickKeys[tickKeys.length - 1];

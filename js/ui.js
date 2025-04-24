@@ -1,6 +1,6 @@
 // write the UI updating stuff here (NOT THE CANVAS UPDATES);
 
-import { settings, settingsToConfigure } from "../renderer.js";
+import { settings, settingsToConfigure, tickStore } from "../renderer.js";
 
 // export as required
 
@@ -68,6 +68,19 @@ export function setupMultiRoundsPanel(element, rounds) {
     roundCheckbox.className = "form-check-input me-2";
     roundCheckbox.id = "round_" + roundCount;
     roundCheckbox.checked = true;
+
+    // Add event listener
+    roundCheckbox.addEventListener("change", () => {
+      if (roundCheckbox.checked) {
+        // Add it to the multiround set.
+        tickStore.multiRoundTicks.add(round);
+      } else {
+        tickStore.multiRoundTicks.delete(round);
+      }
+    });
+
+    // By default, let's add every round to the tickStore as all the tickboxes start checked anyway.
+    tickStore.multiRoundTicks.add(round);
 
     const roundLabel = document.createElement("label");
     roundLabel.className = "form-check-label";

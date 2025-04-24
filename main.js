@@ -194,15 +194,17 @@ app.whenReady().then(() => {
       mapdata: demoMapData,
     };
 
-    writeFile(processedDemoFilePath, JSON.stringify(processedDemo), "utf-8", (err) => {
-      if (err) {
-        console.error("Error writing:", processedDemoFilePath);
-        console.error(err);
-        return false;
-      } else {
-        console.log("Successfully wrote:", processedDemoFilePath);
-        return true;
-      }
+    return new Promise((resolve) => {
+      writeFile(processedDemoFilePath, JSON.stringify(processedDemo), "utf-8", (err) => {
+        if (err) {
+          console.error("Error writing:", processedDemoFilePath);
+          console.error(err);
+          resolve(false);
+        } else {
+          console.log("Successfully wrote:", processedDemoFilePath);
+          resolve(true);
+        }
+      });
     });
   });
 
