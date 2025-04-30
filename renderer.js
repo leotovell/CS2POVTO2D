@@ -24,6 +24,7 @@ function initHomePage() {
   const submitBtn = document.getElementById("uploadDemoBtn");
   const loader = document.getElementById("loader");
   const loaderText = document.getElementById("loader-text");
+  const isFaceitCheckbox = document.getElementById("setting_isFaceit");
 
   submitBtn.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -56,7 +57,7 @@ function initHomePage() {
       return;
     }
     enableLoader(loader, loaderText, "Previewing Demo...");
-    const demoPreviewInfo = await window.electron.previewDemo(demoPath);
+    const demoPreviewInfo = await window.electron.previewDemo(demoPath, isFaceitCheckbox.checked);
     console.log(demoPreviewInfo);
     localStorage.setItem("demoMapName", demoPreviewInfo.header.map_name);
     localStorage.setItem("demoHeader", JSON.stringify(demoPreviewInfo.header));
@@ -160,6 +161,7 @@ export let settings = {
 
   // Render/Animation Settings
   showShootingTracers: false,
+  freezeTimeLength: 3,
 
   // Multi-round overlay
   multiRoundOverlayMode: false,
@@ -170,6 +172,7 @@ export let settings = {
 export let settingsToConfigure = [
   { name: "showNadesThrownByHiddenPlayers", type: "checkbox", defaultValue: false },
   { name: "showShootingTracers", type: "checkbox", defaultValue: true },
+  { name: "freezeTimeLength", type: "select", defaultValue: 3 },
 ];
 
 async function initDemoReviewPage() {
@@ -214,6 +217,22 @@ async function initDemoReviewPage() {
     settings.multiRoundOverlayMode = false;
   });
 
+  // What is a knife round?
+  // roundStarts:
+  // index 0 - KNIFE ROUND
+  // index 1 - TEAM_SWITCH DECIDE
+  // index 2 - TEAM_SWITCHED -> LIVE COUNTDOWN
+  // index 3 - PISTOL // ROUND 1
+  // index 4... are live rounds.
+
+  // So really we need to remove index 1 + 2; so:
+  // index 0 - KNIFE ROUND
+  // index 1 - PISTOL
+
+  // Also, perhaps we should edit the freezetime down to 5 seconds only (5 * 64) by using freeze_time_ends events and round_end_events
+
+  // round_
+
   // TODO
   // Next we add event listeners to each roundListCheckbox so when it's checked we create/delete the tick_counter for it in tickStore.multiRoundTicks;
   // Then need to adjust drawTick to account for multi-tick mode.
@@ -236,7 +255,9 @@ async function initDemoReviewPage() {
   enableLoader(loader, loaderText, "Processing Demo...");
   // const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map } = await window.electron.processDemo();
   const res = await fetch("http://localhost:3000/api/demo/process");
-  const { ticks, nades, nadeFlightPaths, roundStarts, freezeEnds, mapData: map, scoreboard } = await res.json();
+  const { ticks, nades, nadeFlightPaths, events, mapData: map, scoreboard } = await res.json();
+  const { roundStarts, freezeEnds, roundEnds, roundOfficiallyEnded } = events;
+
   tickStore.tickData = ticks;
   disableLoader(loader);
   loadCanvasVars(canvas, ctx);
@@ -246,7 +267,12 @@ async function initDemoReviewPage() {
   const playerFiltersModal = document.getElementById("playerFiltersModalTeamBox");
   setupPlayerFiltersModal(playerFiltersModal, scoreboard);
   setupSettingsListeners();
-  setupMultiRoundsPanel(document.getElementById("multi-rounds-list"), roundStarts);
+  setupMultiRoundsPanel(document.getElementById("multi-rounds-list"), freezeEnds, roundEnds);
+
+  console.log("starts: ", roundStarts);
+  console.log("freeze: ", freezeEnds);
+  console.log("ends: ", roundEnds);
+  console.log("oends: ", roundOfficiallyEnded);
 
   // Flags
   const tickrate = 64;
@@ -281,6 +307,26 @@ async function initDemoReviewPage() {
     function drawFrame() {
       if (paused || isScrubbing) return;
 
+      console.log("Current Tick:", tickStore.currentTick);
+
+      let manuallyJumped = false;
+
+      const futureFreezeEnds = freezeEnds.filter((ends) => ends.tick > tickStore.currentTick);
+      const nextFreezeEnd = futureFreezeEnds.length > 0 ? Math.min(...futureFreezeEnds.map((end) => end.tick)) : null;
+      const desiredFreezeTimeLengthInTicks = settings.freezeTimeLength * tickrate;
+
+      if (!settings.multiRoundOverlayMode && nextFreezeEnd != null) {
+        const correspondingRoundStart = [...roundStarts].reverse().find((start) => start.tick <= nextFreezeEnd);
+        const targetFreezeTimeTick = nextFreezeEnd - desiredFreezeTimeLengthInTicks;
+
+        if (correspondingRoundStart && tickStore.currentTick > correspondingRoundStart.tick && tickStore.currentTick < targetFreezeTimeTick) {
+          console.log("JUMPED:", tickStore.currentTick, ">", correspondingRoundStart.tick, "AND", tickStore.currentTick, "<", targetFreezeTimeTick, "TRUE");
+          tickStore.currentTick = targetFreezeTimeTick;
+          manuallyJumped = true;
+          console.log("New tick after Jumping:", tickStore.currentTick);
+        }
+      }
+
       const tickKey = tickKeys[tickStore.currentTick];
       const tick = ticks[tickKey];
 
@@ -300,7 +346,14 @@ async function initDemoReviewPage() {
       drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImg);
       const tickDurationMs = 1000 / speedMultiplier / tickrate;
 
-      tickStore.currentTick++;
+      if (!manuallyJumped) {
+        if (settings.multiRoundOverlayMode) {
+          tickStore.multiRoundMasterTick++;
+        } else {
+          tickStore.currentTick++;
+        }
+      }
+
       if (tickStore.currentTick < tickKeys.length) {
         animationTimeout = setTimeout(drawFrame, tickDurationMs);
       } else {
@@ -325,16 +378,17 @@ async function initDemoReviewPage() {
       const newTick = parseInt(scrubBar.value);
       seekToDemoTime(newTick, tickKeys);
       // Find out what round we are now on.
-      let lastRoundStart = -Infinity;
-      for (const num of roundStarts) {
-        if (num <= tickStore.currentTick && num > lastRoundStart) {
-          lastRoundStart = num;
+      if (settings.multiRoundOverlayMode) {
+        let lastRoundStart = -Infinity;
+        for (const num of roundStarts) {
+          if (num <= tickStore.currentTick && num > lastRoundStart) {
+            lastRoundStart = num;
+          }
         }
+        tickStore.currentRound = roundStarts.indexOf(lastRoundStart);
+        // Update the currentRoundCounter
+        roundSelect.value = tickStore.currentRound;
       }
-      tickStore.currentRound = roundStarts.indexOf(lastRoundStart);
-      console.log("CurrentRound", tickStore.currentRound);
-      // Update the currentRoundCounter
-      roundSelect.value = tickStore.currentRound;
       const tickKey = tickKeys[tickStore.currentTick];
       const tick = ticks[tickKey];
       drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImg); // Just render the frame without resuming playback
@@ -362,6 +416,9 @@ async function initDemoReviewPage() {
         playPauseBtn.innerText = "Play";
         clearTimeout(animationTimeout);
       }
+      // if (!paused) {
+      //   playPauseBtn.click();
+      // }
     });
 
     // Add round select options (and also init the listener)

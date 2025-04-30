@@ -55,10 +55,10 @@ export function enableElement(element) {
   element.disabled = false;
 }
 
-export function setupMultiRoundsPanel(element, rounds) {
+export function setupMultiRoundsPanel(element, freezeEnds, roundEnds) {
   // rounds is a list of freezeEnds
   let roundCount = 0;
-  rounds.forEach((round) => {
+  freezeEnds.forEach((round) => {
     roundCount++;
     const roundListItem = document.createElement("li");
     roundListItem.className = "list-group-item d-flex align-items-center";
@@ -69,18 +69,21 @@ export function setupMultiRoundsPanel(element, rounds) {
     roundCheckbox.id = "round_" + roundCount;
     roundCheckbox.checked = true;
 
+    const roundWinReason = document.createElement("span");
+    roundWinReason.innerHTML = roundEnds[roundCount - 1].winner + " | " + roundEnds[roundCount - 1].reason;
+
     // Add event listener
     roundCheckbox.addEventListener("change", () => {
       if (roundCheckbox.checked) {
         // Add it to the multiround set.
-        tickStore.multiRoundTicks.add(round);
+        tickStore.multiRoundTicks.add(round.tick);
       } else {
-        tickStore.multiRoundTicks.delete(round);
+        tickStore.multiRoundTicks.delete(round.tick);
       }
     });
 
     // By default, let's add every round to the tickStore as all the tickboxes start checked anyway.
-    tickStore.multiRoundTicks.add(round);
+    tickStore.multiRoundTicks.add(round.tick);
 
     const roundLabel = document.createElement("label");
     roundLabel.className = "form-check-label";
@@ -89,6 +92,7 @@ export function setupMultiRoundsPanel(element, rounds) {
 
     roundListItem.append(roundCheckbox);
     roundListItem.append(roundLabel);
+    roundListItem.append(roundWinReason);
 
     element.append(roundListItem);
   });
@@ -205,6 +209,14 @@ export function setupSettingsListeners() {
       // Add listener
       element.addEventListener("change", () => {
         settings[setting.name] = element.checked;
+        console.log(settings);
+      });
+    } else if ((setting.type = "select")) {
+      // set to default
+      element.value = setting.defaultValue;
+
+      element.addEventListener("change", () => {
+        settings[setting.name] = element.value;
         console.log(settings);
       });
     }

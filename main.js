@@ -3,7 +3,7 @@ import * as nodePath from "node:path";
 import { readFileSync, writeFile } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
-import { debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
+import { cleanDemoData, debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
 import { Worker } from "worker_threads";
 import express from "express";
 import { Readable } from "node:stream";
@@ -22,11 +22,12 @@ let demoScoreboard;
 let demoTicks;
 let demoEvents;
 let demoMapData;
+let demoIsFaceit = true;
 
-function runWorker(task, buffer) {
+function runWorker(task, buffer, ticksToAdjust, applyAdjustment) {
   return new Promise((resolve, reject) => {
     const worker = new Worker("./parseWorker.js", {
-      workerData: { task, buffer },
+      workerData: { task, buffer, ticksToAdjust, applyAdjustment },
     });
 
     worker.on("message", resolve);
@@ -42,7 +43,6 @@ const api = express();
 api.use(bodyParser.json({ limit: "500mb" }));
 
 api.get("/api/demo/process", async (req, res) => {
-  console.log("here");
   res.setHeader("Content-Type", "application/json");
 
   let returnObj;
@@ -51,23 +51,84 @@ api.get("/api/demo/process", async (req, res) => {
     const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
     let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
     let thisMapData = mapData[currentMap];
-    const { round_start_events, round_freeze_end_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end"]);
+    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end", "round_end", "round_officially_ended"]);
 
-    let [processedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer), runWorker("grenades", demoFileBuffer)]);
+    // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
+    let ticksToAdjust = 0;
+    let omitStartTick = 0;
+    let omitEndTick = 0;
+    let newRoundStarts = [];
 
+    if (demoIsFaceit) {
+      // Total ticks between roundStart of round 1 (after knife) and 3 (pistol)
+      ticksToAdjust = round_start_events[3].tick - round_start_events[1].tick;
+      // Tick range to filter out
+      omitStartTick = round_start_events[1].tick;
+      omitEndTick = round_start_events[3].tick;
+
+      // Also adjust the round_start_events to omit those two rounds.
+      // preserve round_start_events[0], remove the following two, then adjust all by -ticksToAdjust.
+      round_start_events.splice(1, 2);
+      for (let i = 1; i < round_start_events.length; i++) {
+        round_start_events[i].tick -= ticksToAdjust;
+      }
+      // for (let i = 1; i < round_freeze_end_events.length; i++) {
+      //   round_freeze_end_events[i] -= ticksToAdjust;
+      // }
+      for (let i = 0; i < round_end_events.length; i++) {
+        round_end_events[i].tick -= ticksToAdjust;
+      }
+      //first let's make sure we unique this. Turn to set then back to a list.
+      // round_officially_ended_events = [...new Set(round_officially_ended_events)];
+
+      const seen = new Set();
+
+      for (let i = 0; i < round_officially_ended_events.length; ) {
+        if (seen.has(round_officially_ended_events[i].tick)) round_officially_ended_events.splice(i, 1);
+        else {
+          seen.add(round_officially_ended_events[i].tick);
+          i++;
+        }
+      }
+
+      for (let i = 0; i < round_officially_ended_events.length; i++) {
+        round_officially_ended_events[i].tick -= ticksToAdjust;
+      }
+    }
+
+    let [processedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer, ticksToAdjust, omitStartTick, omitEndTick), runWorker("grenades", demoFileBuffer)]);
     // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
-    demoTicks = processGrenades(grenades, processedTicks);
+    demoTicks = processGrenades(grenades, processedTicks, ticksToAdjust, omitStartTick, omitEndTick);
+
+    if (!demoIsFaceit) {
+      const cleaned = cleanDemoData({
+        round_start_events,
+        round_freeze_end_events,
+        round_end_events,
+        round_officially_ended_events,
+        tick_data: processedTicks,
+      });
+
+      round_start_events = cleaned.round_start_events;
+      round_freeze_end_events = cleaned.round_freeze_end_events;
+      round_end_events = cleaned.round_end_events;
+      round_officially_ended_events = cleaned.round_officially_ended_events;
+      demoTicks = cleaned.tick_data;
+    }
+
     demoEvents = {
       roundStarts: round_start_events,
       freezeEnds: round_freeze_end_events,
+      roundEnds: round_end_events,
+      roundOfficiallyEnded: round_officially_ended_events,
     };
+
     demoMapData = thisMapData;
 
     returnObj = {
       ticks: demoTicks,
       // nades: grenades,
-      roundStarts: round_start_events,
-      freezeEnds: round_freeze_end_events,
+      events: demoEvents,
       mapData: thisMapData,
       scoreboard: demoScoreboard,
     };
@@ -78,8 +139,7 @@ api.get("/api/demo/process", async (req, res) => {
   } else if (demoFilePath.endsWith(".json")) {
     returnObj = {
       ticks: demoTicks,
-      roundStarts: demoEvents.roundStarts,
-      freezeEnds: demoEvents.freezeEnds,
+      events: demoEvents,
       mapData: demoMapData,
       scoreboard: demoScoreboard,
     };
@@ -114,7 +174,7 @@ app.whenReady().then(() => {
       filters: [
         {
           name: "Demo File",
-          extensions: ["dem"],
+          extensions: ["dem", "json"],
         },
         { name: "Pre-processed Demos", extensions: ["json"] },
       ],
@@ -123,10 +183,11 @@ app.whenReady().then(() => {
     return result.filePaths;
   });
 
-  ipcMain.handle("demo:preview", async (_, demoPath) => {
+  ipcMain.handle("demo:preview", async (_, demoPath, isFaceit) => {
     console.log("Previewing demo:", demoPath);
 
     demoFilePath = demoPath;
+    demoIsFaceit = isFaceit;
 
     // Identify if its a .dem or .json
     if (demoPath.endsWith(".dem")) {

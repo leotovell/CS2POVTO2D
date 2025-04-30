@@ -36,16 +36,16 @@ const playerDirectionLineLength = 10;
 export function updateRoundInfo(currentTick, roundStarts, freezeEnds) {
   // find latest round start
   let lastRoundStart = -Infinity;
-  for (const num of roundStarts) {
-    if (num <= currentTick && num > lastRoundStart) {
-      lastRoundStart = num;
+  for (const round of roundStarts) {
+    if (round.tick <= currentTick && round.tick > lastRoundStart) {
+      lastRoundStart = round.tick;
     }
   }
 
   let lastFreezeEnds = -Infinity;
-  for (const num of freezeEnds) {
-    if (num <= currentTick && num > lastFreezeEnds) {
-      lastFreezeEnds = num;
+  for (const end of freezeEnds) {
+    if (end.tick <= currentTick && end.tick > lastFreezeEnds) {
+      lastFreezeEnds = end.tick;
     }
   }
   // Conditional: if lastRoundStart > lastFreezeEnds then pause the timer at 1:55s (we are in a freeze time or a timeout)
@@ -158,13 +158,17 @@ export function drawGrenade(grenade) {
 }
 
 export function seekToDemoTime(scrubbedTick, tickKeys) {
-  let newIndex = tickKeys.indexOf(scrubbedTick);
-  if (newIndex === -1) {
-    // fallback to closest tick
-    newIndex = tickKeys.findIndex((tick) => tick >= scrubbedTick);
-    if (newIndex === -1) newIndex = tickKeys.length - 1;
+  if (settings.multiRoundOverlayMode) {
+    tickStore.multiRoundMasterTick = scrubbedTick;
+  } else {
+    let newIndex = tickKeys.indexOf(scrubbedTick);
+    if (newIndex === -1) {
+      // fallback to closest tick
+      newIndex = tickKeys.findIndex((tick) => tick >= scrubbedTick);
+      if (newIndex === -1) newIndex = tickKeys.length - 1;
+    }
+    tickStore.currentTick = newIndex;
   }
-  tickStore.currentTick = newIndex;
 }
 
 export function goToRound(roundNumber, roundStarts) {
@@ -175,7 +179,7 @@ export function goToRound(roundNumber, roundStarts) {
 export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImage) {
   updateRoundInfo(tickKey, roundStarts, freezeEnds);
 
-  currentTickSpan.innerHTML = tickKey + " of " + lastTick;
+  currentTickSpan.innerHTML = tickStore.currentTick + " of " + lastTick;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
@@ -208,25 +212,35 @@ export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapIm
 
     // longest round tick
     let longestRoundTicks = 0;
+
+    // Get the longest round tick
+    for (let i = 1; i < roundStarts.length; i++) {
+      const diff = roundStarts[i].tick - roundStarts[i - 1].tick;
+      if (diff > longestRoundTicks) longestRoundTicks = diff;
+    }
     tickStore.multiRoundTicks.forEach((roundStartTick) => {
       // Get the tick
       const roundTick = tickStore.multiRoundMasterTick + roundStartTick;
-      // Get the data associated with the tick
-      const tickKey = tickStore.tickKeys[roundTick];
-      const tick = tickStore.tickData[tickKey];
+      const nextRoundStart = roundStarts.find((start) => start.tick > roundStartTick);
 
-      if (tick) {
-        if (tick.players) {
-          for (const player of tick.players) {
-            if (!settings.hiddenPlayers.has(player.name)) {
-              drawPlayer(player);
+      if (nextRoundStart && roundTick < nextRoundStart.tick) {
+        // Get the data associated with the tick
+        const tickKey = tickStore.tickKeys[roundTick];
+        const tick = tickStore.tickData[tickKey];
+
+        if (tick) {
+          if (tick.players) {
+            for (const player of tick.players) {
+              if (!settings.hiddenPlayers.has(player.name)) {
+                drawPlayer(player);
+              }
             }
           }
-        }
-        if (tick.grenades) {
-          for (const nade of tick.grenades) {
-            if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
-              drawGrenade(nade);
+          if (tick.grenades) {
+            for (const nade of tick.grenades) {
+              if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
+                drawGrenade(nade);
+              }
             }
           }
         }
@@ -236,6 +250,5 @@ export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapIm
     // Finally update the scrub-bar, and incrememnt the master tick
     scrubBar.max = longestRoundTicks;
     scrubBar.value = tickStore.multiRoundMasterTick;
-    tickStore.multiRoundMasterTick++;
   }
 }
