@@ -167,7 +167,7 @@ export let tickStore = {
   maxTick: Infinity,
   currentDemoTick: 0,
   currentRound: 0,
-  multiRoundTicks: new Set(),
+  multiRoundSelection: new Set(),
   multiRoundMasterTick: 0,
 };
 
@@ -292,25 +292,24 @@ async function initDemoReviewPage() {
       tick = getTickData(tickStore.currentTick);
       if (tick != null) {
         tickStore.currentDemoTick = tick.demoTick;
+        tickStore.currentRound = getRoundInfo(tickStore.currentTick);
 
         // Update the forward/backward round buttons
-        if (tickStore.currentRound == 1) {
+        if (tickStore.currentRound.roundNumber == 1) {
           disableElement(prevRoundBtn);
         } else {
           enableElement(prevRoundBtn);
         }
-        if (tickStore.currentRound == tickStore.rounds.length) {
+        if (tickStore.currentRound.roundNumber == tickStore.rounds.length) {
           disableElement(nextRoundBtn);
         } else {
           enableElement(nextRoundBtn);
         }
 
         // Are we between a round start and freeze end? Skip to the desired freeze time length.
-        // let round = getRoundInfo(tickStore.currentTick);
-        // if (tickStore.currentDemoTick < round.freezeEndTick - settings.freezeTimeLength * tickrate) {
-        //   tickStore.currentTick = getVirtualTickFromDemoTick(round.freezeEndTick - settings.freezeTimeLength * tickrate);
-        //   console.log("Skipping freezetime.");
-        // }
+        if (tickStore.currentDemoTick < tickStore.currentRound.freezeEndTick - settings.freezeTimeLength * tickrate) {
+          tickStore.currentTick = getVirtualTickFromDemoTick(tickStore.currentRound.freezeEndTick - settings.freezeTimeLength * tickrate);
+        }
 
         drawTick(tick, mapImg);
       } else {
@@ -347,18 +346,7 @@ async function initDemoReviewPage() {
 
       const newTick = parseInt(scrubBar.value);
       seekToDemoTime(newTick);
-      // Find out what round we are now on.
-      if (settings.multiRoundOverlayMode) {
-        let lastRoundStart = -Infinity;
-        for (const num of roundStarts) {
-          if (num <= tickStore.currentTick && num > lastRoundStart) {
-            lastRoundStart = num;
-          }
-        }
-        tickStore.currentRound = roundStarts.indexOf(lastRoundStart);
-        // Update the currentRoundCounter
-        roundSelect.value = tickStore.currentRound;
-      }
+      tickStore.currentRound = getRoundInfo(tickStore.currentTick);
 
       tick = getTickData(tickStore.currentTick);
       tickStore.currentDemoTick = tick.demoTick;
@@ -367,6 +355,8 @@ async function initDemoReviewPage() {
       } else {
         drawTick(tick, mapImg); // Just render the frame without resuming playback
       }
+
+      roundSelect.value = tickStore.currentRound.roundNumber;
     });
 
     scrubBar.addEventListener("change", () => {
@@ -403,26 +393,27 @@ async function initDemoReviewPage() {
 
     roundSelect.addEventListener("input", () => {
       goToRound(roundSelect.value); //change selected tick
-      tickStore.currentRound = roundSelect.value;
     });
 
     prevRoundBtn.addEventListener("click", () => {
-      if (tickStore.currentRound - 1 < 1) {
+      if (tickStore.currentRound.roundNumber - 1 < 1) {
         alert("No previous round!");
       } else {
-        tickStore.currentRound--;
-        goToRound(tickStore.currentRound, roundStarts);
-        roundSelect.value = tickStore.currentRound;
+        goToRound(tickStore.currentRound.roundNumber - 1);
+        roundSelect.value = tickStore.currentRound.roundNumber;
       }
     });
 
+    disableElement(prevRoundBtn);
+
     nextRoundBtn.addEventListener("click", () => {
-      if (tickStore.currentRound + 1 > roundStarts.length) {
+      if (tickStore.currentRound.isLastRound) {
         alert("No further round!");
       } else {
-        tickStore.currentRound++;
-        goToRound(tickStore.currentRound, roundStarts);
-        roundSelect.value = tickStore.currentRound;
+        // tickStore.currentRound++;
+        const nextRoundNumber = tickStore.currentRound.roundNumber + 1;
+        goToRound(nextRoundNumber);
+        roundSelect.value = nextRoundNumber;
       }
     });
 

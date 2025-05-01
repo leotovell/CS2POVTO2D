@@ -40,7 +40,7 @@ TODO:
 
 ### Easiest Method (Recommended for Most Users)
 
-1. Head to the **[Latest Release](https://github.com/yourusername/yourrepo/releases)**.
+1. Head to the **[Latest Release](https://github.com/leotovell/CS2POVTO2D/releases)**.
 2. Download and run `demoreview Setup 1.0.0.exe`.
 3. Once installed, you can search **"demoreview"** in your Windows Start menu to launch the app.
 

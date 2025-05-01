@@ -8,6 +8,7 @@ const roundTimeSecs = document.getElementById("roundTimeSeconds");
 const backgroundDiv = document.getElementById("scrubBarBackground");
 const currentTickSpan = document.getElementById("currentTickSpan");
 const scrubBar = document.getElementById("scrubBar");
+const roundSelect = document.getElementById("roundSelect");
 
 import { settings, tickStore } from "../renderer.js";
 
@@ -62,22 +63,23 @@ export function getRoundInfo(tick) {
 }
 
 export function getVirtualTickFromDemoTick(demoTick) {
-  // Convert tickMap to an array of [virtual, actual] pairs
   const tickPairs = Object.entries(tickStore.tickMap)
-    .map(([virtual, actual]) => [parseInt(virtual), actual])
-    .sort((a, b) => a[1] - b[1]); // Sort by actual tick just in case
+    .map(([virtual, actual]) => [virtual, actual.actualTick])
+    .sort((a, b) => a[1] - b[1]);
 
-  // Find the largest virtual tick whose actual tick is <= demoTick
-  let result = 0;
+  console.log(tickPairs);
+
+  // Find the closest virtual tick (less than or equal to demoTick)
+  let closest = undefined;
   for (const [virtual, actual] of tickPairs) {
     if (actual <= demoTick) {
-      result = virtual;
+      closest = virtual;
     } else {
       break;
     }
   }
 
-  return result;
+  return closest;
 }
 
 /**
@@ -88,9 +90,9 @@ export function getVirtualTickFromDemoTick(demoTick) {
  * @param {Number} currentTick
  */
 export function updateRoundInfo() {
-  let round = getRoundInfo(tickStore.currentTick);
+  let round = tickStore.currentRound;
 
-  console.log("tick:", tickStore.currentDemoTick, "| round:", round);
+  roundSelect.value = round.roundNumber;
 
   let roundTimeM = "1";
   let roundTimeS = "55";
@@ -225,16 +227,22 @@ export function seekToDemoTime(scrubbedTick) {
 
 export function goToRound(roundNumber) {
   // 1. Find the real tick that the round starts at
-  const roundStartTick = tickStore.rounds.find((round) => round.roundNumber === roundNumber)?.tick;
+  const round = tickStore.rounds.find((round) => round.roundNumber === roundNumber);
+  const roundStartTick = Object.keys(round.ticks)[0];
   if (roundStartTick === undefined) return console.warn(`Round ${roundNumber} not found`);
 
+  console.log("Found round, start tick:", roundStartTick);
+
   // 2. Inverse search tickMap: find the virtual tick that maps to this actual tick
-  const virtualTick = Object.entries(tickStore.tickMap).find(([_, actualTick]) => actualTick === roundStartTick)?.[0];
+  const virtualTick = getVirtualTickFromDemoTick(roundStartTick);
+
+  console.log("Demo to Virtual Tick:", virtualTick);
 
   if (virtualTick === undefined) return console.warn(`No virtual tick found for tick ${roundStartTick}`);
 
   // 3. Set the virtual tick (convert from string to number if needed)
-  tickStore.currentTick = parseInt(virtualTick);
+  tickStore.currentTick = virtualTick;
+  tickStore.currentRound = round;
 }
 
 export function drawTick(tick, mapImage) {
@@ -275,20 +283,15 @@ export function drawTick(tick, mapImage) {
     let longestRoundTicks = 0;
 
     // Get the longest round tick
-    for (let i = 1; i < roundStarts.length; i++) {
-      const diff = roundStarts[i].tick - roundStarts[i - 1].tick;
+    for (const round of tickStore.rounds) {
+      const diff = round.officiallyEndedTick - round.startTick;
       if (diff > longestRoundTicks) longestRoundTicks = diff;
     }
-    tickStore.multiRoundTicks.forEach((roundStartTick) => {
-      // Get the tick
-      const roundTick = tickStore.multiRoundMasterTick + roundStartTick;
-      const nextRoundStart = roundStarts.find((start) => start.tick > roundStartTick);
-
-      if (nextRoundStart && roundTick < nextRoundStart.tick) {
-        // Get the data associated with the tick
-        const tickKey = tickStore.tickKeys[roundTick];
-        const tick = tickStore.tickData[tickKey];
-
+    tickStore.multiRoundSelection.forEach((round) => {
+      // What's the current tick?
+      const roundTick = tickStore.multiRoundMasterTick + round.freezeEndTick;
+      if (roundTick < round.officiallyEndedTick) {
+        tick = round.ticks[roundTick];
         if (tick) {
           if (tick.players) {
             for (const player of tick.players) {

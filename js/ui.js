@@ -73,14 +73,14 @@ export function setupMultiRoundsPanel(element, rounds) {
     roundCheckbox.addEventListener("change", () => {
       if (roundCheckbox.checked) {
         // Add it to the multiround set.
-        tickStore.multiRoundTicks.add(round.startTick);
+        tickStore.multiRoundSelection.add(round);
       } else {
-        tickStore.multiRoundTicks.delete(round.startTick);
+        tickStore.multiRoundSelection.delete(round);
       }
     });
 
     // By default, let's add every round to the tickStore as all the tickboxes start checked anyway.
-    tickStore.multiRoundTicks.add(round.startTick);
+    tickStore.multiRoundSelection.add(round);
 
     const roundLabel = document.createElement("label");
     roundLabel.className = "form-check-label";
