@@ -1,5 +1,20 @@
 // const { enableLoader, disableLoader } = require("./js/ui");
-import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap, goToRound, constructTickMap, getTickData } from "./js/demo.js";
+import {
+  drawGrenade,
+  drawPlayer,
+  drawTick,
+  loadCanvasVars,
+  loadMapVars,
+  renderRoundSegments,
+  seekToDemoTime,
+  updateRoundInfo,
+  worldToMap,
+  goToRound,
+  constructTickMap,
+  getTickData,
+  getRoundInfo,
+  getVirtualTickFromDemoTick,
+} from "./js/demo.js";
 import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel } from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
 
@@ -275,22 +290,32 @@ async function initDemoReviewPage() {
       if (paused || isScrubbing) return;
 
       tick = getTickData(tickStore.currentTick);
-      console.log("tick for", tickStore.currentTick + ":", tick);
-      tickStore.currentDemoTick = tick.demoTick;
+      if (tick != null) {
+        tickStore.currentDemoTick = tick.demoTick;
 
-      // Update the forward/backward round buttons
-      if (tickStore.currentRound == 1) {
-        disableElement(prevRoundBtn);
-      } else {
-        enableElement(prevRoundBtn);
-      }
-      if (tickStore.currentRound == tickStore.rounds.length) {
-        disableElement(nextRoundBtn);
-      } else {
-        enableElement(nextRoundBtn);
-      }
+        // Update the forward/backward round buttons
+        if (tickStore.currentRound == 1) {
+          disableElement(prevRoundBtn);
+        } else {
+          enableElement(prevRoundBtn);
+        }
+        if (tickStore.currentRound == tickStore.rounds.length) {
+          disableElement(nextRoundBtn);
+        } else {
+          enableElement(nextRoundBtn);
+        }
 
-      drawTick(tick, mapImg);
+        // Are we between a round start and freeze end? Skip to the desired freeze time length.
+        // let round = getRoundInfo(tickStore.currentTick);
+        // if (tickStore.currentDemoTick < round.freezeEndTick - settings.freezeTimeLength * tickrate) {
+        //   tickStore.currentTick = getVirtualTickFromDemoTick(round.freezeEndTick - settings.freezeTimeLength * tickrate);
+        //   console.log("Skipping freezetime.");
+        // }
+
+        drawTick(tick, mapImg);
+      } else {
+        console.warn("Skipping tick", tickStore.currentTick, "due to missing data - likely due to demo inconsistencies.");
+      }
       const tickDurationMs = 1000 / speedMultiplier / tickrate;
 
       if (settings.multiRoundOverlayMode) {
@@ -337,7 +362,11 @@ async function initDemoReviewPage() {
 
       tick = getTickData(tickStore.currentTick);
       tickStore.currentDemoTick = tick.demoTick;
-      drawTick(tick, mapImg); // Just render the frame without resuming playback
+      if (tick == null) {
+        console.warn("Skipping tick", tickStore.currentTick, "due to missing data - likely due to demo inconsistencies.");
+      } else {
+        drawTick(tick, mapImg); // Just render the frame without resuming playback
+      }
     });
 
     scrubBar.addEventListener("change", () => {

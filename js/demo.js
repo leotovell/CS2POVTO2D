@@ -31,13 +31,15 @@ export function constructTickMap(rounds) {
   const tickMap = {};
 
   rounds.forEach((round, round_index) => {
-    for (let actualTick = round.startTick; actualTick <= round.endTick; actualTick++) {
+    for (let actualTick = round.startTick; actualTick <= round.officiallyEndedTick; actualTick++) {
       tickMap[virtualTick] = { round_index, actualTick };
       virtualTick++;
     }
   });
 
   tickStore.tickMap = tickMap;
+
+  console.log(tickStore.tickMap);
 
   // Whilst we are at it, let's grab the max virtual tick possible.
   tickStore.maxTick = Object.keys(tickMap).length;
@@ -59,6 +61,25 @@ export function getRoundInfo(tick) {
   return round;
 }
 
+export function getVirtualTickFromDemoTick(demoTick) {
+  // Convert tickMap to an array of [virtual, actual] pairs
+  const tickPairs = Object.entries(tickStore.tickMap)
+    .map(([virtual, actual]) => [parseInt(virtual), actual])
+    .sort((a, b) => a[1] - b[1]); // Sort by actual tick just in case
+
+  // Find the largest virtual tick whose actual tick is <= demoTick
+  let result = 0;
+  for (const [virtual, actual] of tickPairs) {
+    if (actual <= demoTick) {
+      result = virtual;
+    } else {
+      break;
+    }
+  }
+
+  return result;
+}
+
 /**
  * @description Updates the `Round Timer`, `Current Round` UI elements.
  * @author Leo Tovell
@@ -69,16 +90,21 @@ export function getRoundInfo(tick) {
 export function updateRoundInfo() {
   let round = getRoundInfo(tickStore.currentTick);
 
+  console.log("tick:", tickStore.currentDemoTick, "| round:", round);
+
   let roundTimeM = "1";
   let roundTimeS = "55";
 
   if (tickStore.currentDemoTick < round.freezeEndTick) {
-    let lengthOfFreezeTimeInTicks = round.freezeEndTick - round.startTick;
-    let ticksRemaining = lengthOfFreezeTimeInTicks - tickStore.currentDemoTick;
-    let timeRemaining = ticksRemaining / 64;
+    // let lengthOfFreezeTimeInTicks = round.freezeEndTick - round.startTick;
+    // let ticksRemaining = lengthOfFreezeTimeInTicks - (tickStore.currentDemoTick - round.freezeEndTick);
+    // let timeRemaining = ticksRemaining / 64;
+    let lengthOfPreround = round.freezeEndTick - round.startTick;
+    let ticksIntoPreround = tickStore.currentDemoTick - round.startTick;
+    let timeRemaining = (lengthOfPreround - ticksIntoPreround) / 64;
     roundTimeM = Math.floor(timeRemaining / 60);
     roundTimeS = String(Math.floor(timeRemaining % 60)).padStart(2, "0");
-  } else if (tickStore.currentDemoTick > round.freezeEndTick) {
+  } else if (tickStore.currentDemoTick < round.endTick) {
     // What tick are we at into the round?
     let roundTick = tickStore.currentDemoTick - round.freezeEndTick;
     let secondsElapsedInRound = roundTick / 64;
@@ -86,11 +112,14 @@ export function updateRoundInfo() {
     roundTimeM = Math.floor(roundTimeRemaining / 60);
     roundTimeS = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
   } else if (tickStore.currentDemoTick > round.endTick) {
-    let lengthOfEndOfRoundInTicks = round.officiallyEndedTick - round.endTick; // How many ticks between end of round and official end of round?
-    let ticksRemaining = lengthOfEndOfRoundInTicks - tickStore.currentDemoTick;
-    let timeRemaining = ticksRemaining / 64;
+    // let lengthOfRoundEnd = round.officiallyEndedTick - round.endTick; // How many ticks between end of round and official end of round?
+    // let ticksRemaining = lengthOfEndOfRoundInTicks - tickStore.currentDemoTick;
+    // let timeRemaining = ticksRemaining / 64;
+    let lengthOfRoundEnd = round.officiallyEndedTick - round.endTick;
+    let ticksIntoRoundEnd = tickStore.currentDemoTick - round.endTick;
+    let timeRemaining = (lengthOfRoundEnd - ticksIntoRoundEnd) / 64;
     roundTimeM = Math.floor(timeRemaining / 60);
-    roundTimeS = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
+    roundTimeS = String(Math.floor(timeRemaining % 60)).padStart(2, "0");
   }
 
   roundTimeMins.innerHTML = roundTimeM;

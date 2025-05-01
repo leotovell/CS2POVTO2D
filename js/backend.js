@@ -317,14 +317,26 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
     const freezeEndTick = round_freeze_end_events.filter((ev) => ev.tick > startTick).sort((a, b) => a.tick > b.tick)[0].tick;
 
     // const endTick = round_end_events[rounds.length]?.tick ?? round_start_events[i + 1]?.tick - 1; // fallback if round_end missing
-    const endEvent = round_end_events.filter((ev) => ev.tick > startTick).sort((a, b) => a.tick > b.tick)[0];
+    const endEvent = round_end_events.filter((ev) => ev.tick > startTick).sort((a, b) => a.tick - b.tick)[0];
     const endTick = endEvent?.tick;
-    const officiallyEndedTick = round_officially_ended_events.filter((ev) => ev.tick > endTick).sort((a, b) => a.tick > b.tick)[0]?.tick ?? Infinity; // If not exists it's the last round - game over.
+    const officiallyEndedTick = round_officially_ended_events.filter((ev) => ev.tick > endTick).sort((a, b) => a.tick - b.tick)[0]?.tick ?? Infinity;
 
     const roundTicks = {};
 
-    for (let tick = startTick; tick <= endTick; tick++) {
-      if (processedTicks[tick]) {
+    if (Number.isFinite(officiallyEndedTick)) {
+      for (let tick = startTick; tick <= officiallyEndedTick; tick++) {
+        if (processedTicks[tick]) {
+          roundTicks[tick] = processedTicks[tick];
+        }
+      }
+    } else {
+      // No officially ended tick — go to the end of processedTicks
+      const allTicks = Object.keys(processedTicks)
+        .map(Number)
+        .filter((t) => t >= startTick)
+        .sort((a, b) => a - b);
+
+      for (const tick of allTicks) {
         roundTicks[tick] = processedTicks[tick];
       }
     }
