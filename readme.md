@@ -26,9 +26,15 @@ _name = in development_<br>
 | **Usability/QOL**     |
 | -> Scrubbing          | &check; | &check;  |
 | -> Round Timer        | &cross; | &check;  |
-| -> Skip To Round      | &cross; | &check;  |
+| -> Skip To Round      | &cross; |   Leo    |
 | -> Player Filters     |   Leo   |   Leo    |
 | -> Round Filters      |   Leo   |   Leo    |
+
+TODO:
+
+- fix the goToRound feature
+- Add second layer to map for multi-layer maps such as de_nuke
+- Add c4 carrier + c4 planting/defusing.
 
 ## Installation
 
