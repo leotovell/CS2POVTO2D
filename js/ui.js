@@ -55,40 +55,37 @@ export function enableElement(element) {
   element.disabled = false;
 }
 
-export function setupMultiRoundsPanel(element, freezeEnds, roundEnds) {
-  // rounds is a list of freezeEnds
-  let roundCount = 0;
-  freezeEnds.forEach((round) => {
-    roundCount++;
+export function setupMultiRoundsPanel(element, rounds) {
+  rounds.forEach((round) => {
     const roundListItem = document.createElement("li");
     roundListItem.className = "list-group-item d-flex align-items-center";
 
     const roundCheckbox = document.createElement("input");
     roundCheckbox.type = "checkbox";
     roundCheckbox.className = "form-check-input me-2";
-    roundCheckbox.id = "round_" + roundCount;
+    roundCheckbox.id = "round_" + round.roundNumber;
     roundCheckbox.checked = true;
 
     const roundWinReason = document.createElement("span");
-    roundWinReason.innerHTML = roundEnds[roundCount - 1].winner + " | " + roundEnds[roundCount - 1].reason;
+    roundWinReason.innerHTML = round.winner + " | " + round.reason;
 
     // Add event listener
     roundCheckbox.addEventListener("change", () => {
       if (roundCheckbox.checked) {
         // Add it to the multiround set.
-        tickStore.multiRoundTicks.add(round.tick);
+        tickStore.multiRoundTicks.add(round.startTick);
       } else {
-        tickStore.multiRoundTicks.delete(round.tick);
+        tickStore.multiRoundTicks.delete(round.startTick);
       }
     });
 
     // By default, let's add every round to the tickStore as all the tickboxes start checked anyway.
-    tickStore.multiRoundTicks.add(round.tick);
+    tickStore.multiRoundTicks.add(round.startTick);
 
     const roundLabel = document.createElement("label");
     roundLabel.className = "form-check-label";
-    roundLabel.setAttribute("for", "round_" + roundCount);
-    roundLabel.innerHTML = "Round " + roundCount;
+    roundLabel.setAttribute("for", "round_" + round.roundNumber);
+    roundLabel.innerHTML = "Round " + round.roundNumber;
 
     roundListItem.append(roundCheckbox);
     roundListItem.append(roundLabel);
@@ -200,7 +197,6 @@ function addPlayerVisibilityFilter(element, player, teamMates, teamCheckbox) {
 
 export function setupSettingsListeners() {
   settingsToConfigure.forEach((setting) => {
-    console.log("setting_" + setting.name);
     const element = document.getElementById("setting_" + setting.name);
     if (setting.type == "checkbox") {
       // Set to default

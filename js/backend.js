@@ -235,29 +235,65 @@ export function processEvents(demoBuffer, wanted_events) {
  * @param {Number} omitEnd The end of the range of ticks we are omitting. Any ticks after this are adjusted by -`ticksToAdjust`
  * @returns {Object} An object where k=tick and v=an object containing player information
  */
-export function processBasicTicks(demoBuffer, ticksToAdjust, omitStart, omitEnd) {
-  // Get the demo ticks
+// export function processBasicTicks(demoBuffer, demoRoundEvents) {
+//   // Get the demo ticks
+//   const ticks = debugTime("parseTicks", () => parseTicks(demoBuffer, ["X", "Y", "team_num", "yaw", "is_alive", "rotation"]));
+
+//   const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = demoRoundEvents;
+
+//   let processedTicks = {};
+//   debugTime("Processing Ticks", () => {
+//     ticks.forEach((data) => {
+//       // Is the tick in the range to be omitted?
+//       // if (data.tick >= omitStart && data.tick < omitEnd) return;
+//       // if (data.tick >= omitEnd) data.tick -= ticksToAdjust;
+//       if (!processedTicks[data.tick]) {
+//         processedTicks[data.tick] = {
+//           players: [],
+//           grenades: [],
+//         };
+//       }
+
+//       const playerExists = processedTicks[data.tick].players.some((player) => player.name === data.name);
+
+//       if (!playerExists) {
+//         processedTicks[data.tick].players.push({
+//           name: data.name,
+//           X: data.X,
+//           Y: data.Y,
+//           yaw: data.yaw,
+//           team_num: data.team_num,
+//           alive: data.is_alive,
+//         });
+//       }
+//     });
+//   });
+
+//   return processedTicks;
+// }
+
+export function processBasicTicks(demoBuffer, demoRoundEvents) {
   const ticks = debugTime("parseTicks", () => parseTicks(demoBuffer, ["X", "Y", "team_num", "yaw", "is_alive", "rotation"]));
 
-  let processedTicks = {};
+  const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = demoRoundEvents;
+
+  // Create a map of tick -> { players, grenades }
+  const processedTicks = {};
   debugTime("Processing Ticks", () => {
     ticks.forEach((data) => {
-      // Is the tick in the range to be omitted?
-      // if (data.tick >= omitStart && data.tick < omitEnd) return;
-      // if (data.tick >= omitEnd) data.tick -= ticksToAdjust;
       if (!processedTicks[data.tick]) {
         processedTicks[data.tick] = {
           players: [],
           grenades: [],
+          demoTick: data.tick,
         };
       }
 
       const playerExists = processedTicks[data.tick].players.some((player) => player.name === data.name);
-
       if (!playerExists) {
         processedTicks[data.tick].players.push({
           name: data.name,
-          X: data.X,
+          X: data.X, // apply the coord transformation here
           Y: data.Y,
           yaw: data.yaw,
           team_num: data.team_num,
@@ -267,36 +303,105 @@ export function processBasicTicks(demoBuffer, ticksToAdjust, omitStart, omitEnd)
     });
   });
 
-  return processedTicks;
+  // Step 1: Build structured round array
+  const rounds = [];
+
+  for (let i = 0; i < round_start_events.length; i++) {
+    const thisRoundNum = round_start_events[i].round;
+    const nextRoundNum = round_start_events[i + 1]?.round ?? -1;
+
+    if (thisRoundNum == nextRoundNum) continue;
+
+    const startEvent = round_start_events[i];
+    const startTick = startEvent?.tick;
+    const freezeEndTick = round_freeze_end_events.filter((ev) => ev.tick > startTick).sort((a, b) => a.tick > b.tick)[0].tick;
+
+    // const endTick = round_end_events[rounds.length]?.tick ?? round_start_events[i + 1]?.tick - 1; // fallback if round_end missing
+    const endEvent = round_end_events.filter((ev) => ev.tick > startTick).sort((a, b) => a.tick > b.tick)[0];
+    const endTick = endEvent?.tick;
+    const officiallyEndedTick = round_officially_ended_events.filter((ev) => ev.tick > endTick).sort((a, b) => a.tick > b.tick)[0]?.tick ?? Infinity; // If not exists it's the last round - game over.
+
+    const roundTicks = {};
+
+    for (let tick = startTick; tick <= endTick; tick++) {
+      if (processedTicks[tick]) {
+        roundTicks[tick] = processedTicks[tick];
+      }
+    }
+
+    rounds.push({
+      roundNumber: rounds.length + 1,
+      startTick: startTick,
+      freezeEndTick,
+      endTick: endTick,
+      officiallyEndedTick: officiallyEndedTick != Infinity ? officiallyEndedTick : endTick,
+      isLastRound: officiallyEndedTick == Infinity,
+      winner: endEvent.winner,
+      winReason: endEvent.reason,
+      ticks: roundTicks,
+      events: [], // You can fill this in later
+    });
+  }
+
+  return rounds;
 }
 
-export function processGrenades(grenades, ticks, ticksToAdjust, omitStart, omitEnd) {
-  // const grenades = debugTime("parseGrenades", () => parseGrenades(demoBuffer));
+// export function processGrenades(grenades, ticks) {
+//   // const grenades = debugTime("parseGrenades", () => parseGrenades(demoBuffer));
 
+//   debugTime("Processing grenades", () => {
+//     grenades.forEach((nade) => {
+//       // if (nade.tick >= omitStart && nade.tick < omitEnd) return;
+//       // if (nade.tick >= omitEnd) nade.tick -= ticksToAdjust;
+//       if (nade.x != null && nade.y != null) {
+//         if (!ticks[nade.tick]) {
+//           ticks[nade.tick] = {
+//             players: [],
+//             grenades: [],
+//           };
+//         }
+
+//         // Add to the current tick's grenade list
+//         ticks[nade.tick].grenades.push({
+//           id: nade.grenade_entity_id,
+//           type: nade.grenade_type,
+//           name: nade.name,
+//           x: nade.x,
+//           y: nade.y,
+//           z: nade.z,
+//         });
+//       }
+//     });
+//   });
+
+//   return ticks;
+// }
+
+export function processGrenades(grenades, rounds) {
   debugTime("Processing grenades", () => {
     grenades.forEach((nade) => {
-      // if (nade.tick >= omitStart && nade.tick < omitEnd) return;
-      // if (nade.tick >= omitEnd) nade.tick -= ticksToAdjust;
-      if (nade.x != null && nade.y != null) {
-        if (!ticks[nade.tick]) {
-          ticks[nade.tick] = {
-            players: [],
-            grenades: [],
-          };
-        }
+      if (nade.x == null || nade.y == null) return;
 
-        // Add to the current tick's grenade list
-        ticks[nade.tick].grenades.push({
-          id: nade.grenade_entity_id,
-          type: nade.grenade_type,
-          name: nade.name,
-          x: nade.x,
-          y: nade.y,
-          z: nade.z,
-        });
+      // Find the round that contains this tick
+      for (const round of rounds) {
+        if (nade.tick >= round.start_tick && nade.tick <= round.end_tick) {
+          // Ensure the tick exists in this round (you only stored populated ticks)
+          const tickData = round.ticks[nade.tick];
+          if (tickData) {
+            tickData.grenades.push({
+              id: nade.grenade_entity_id,
+              type: nade.grenade_type,
+              name: nade.name,
+              x: nade.x,
+              y: nade.y,
+              z: nade.z,
+            });
+          }
+          break; // Once matched, stop searching
+        }
       }
     });
   });
 
-  return ticks;
+  return rounds;
 }

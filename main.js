@@ -17,17 +17,22 @@ let isPreprocessed = false;
 
 // global vars for demo data
 
-let demoHeader;
-let demoScoreboard;
-let demoTicks;
-let demoEvents;
-let demoMapData;
+// let demoHeader;
+// let demoScoreboard;
+// let demoTicks;
+// let demoEvents;
+// let demoMapData;
 let demoIsFaceit = true;
 
-function runWorker(task, buffer, ticksToAdjust, applyAdjustment) {
+let demoHeader;
+let demoScoreboard;
+let demoRounds;
+let demoMapData;
+
+function runWorker(task, buffer, demoRoundEvents) {
   return new Promise((resolve, reject) => {
     const worker = new Worker("./parseWorker.js", {
-      workerData: { task, buffer, ticksToAdjust, applyAdjustment },
+      workerData: { task, buffer, demoRoundEvents },
     });
 
     worker.on("message", resolve);
@@ -53,93 +58,46 @@ api.get("/api/demo/process", async (req, res) => {
     let thisMapData = mapData[currentMap];
     let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end", "round_end", "round_officially_ended"]);
 
-    // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
-    let ticksToAdjust = 0;
-    let omitStartTick = 0;
-    let omitEndTick = 0;
-    let newRoundStarts = [];
-
-    if (demoIsFaceit) {
-      // Total ticks between roundStart of round 1 (after knife) and 3 (pistol)
-      ticksToAdjust = round_start_events[3].tick - round_start_events[1].tick;
-      // Tick range to filter out
-      omitStartTick = round_start_events[1].tick;
-      omitEndTick = round_start_events[3].tick;
-
-      // Also adjust the round_start_events to omit those two rounds.
-      // preserve round_start_events[0], remove the following two, then adjust all by -ticksToAdjust.
-      round_start_events.splice(1, 2);
-      for (let i = 1; i < round_start_events.length; i++) {
-        round_start_events[i].tick -= ticksToAdjust;
-      }
-      // for (let i = 1; i < round_freeze_end_events.length; i++) {
-      //   round_freeze_end_events[i] -= ticksToAdjust;
-      // }
-      for (let i = 0; i < round_end_events.length; i++) {
-        round_end_events[i].tick -= ticksToAdjust;
-      }
-      //first let's make sure we unique this. Turn to set then back to a list.
-      // round_officially_ended_events = [...new Set(round_officially_ended_events)];
-
-      const seen = new Set();
-
-      for (let i = 0; i < round_officially_ended_events.length; ) {
-        if (seen.has(round_officially_ended_events[i].tick)) round_officially_ended_events.splice(i, 1);
-        else {
-          seen.add(round_officially_ended_events[i].tick);
-          i++;
-        }
-      }
-
-      for (let i = 0; i < round_officially_ended_events.length; i++) {
-        round_officially_ended_events[i].tick -= ticksToAdjust;
-      }
-    }
-
-    let [processedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer, ticksToAdjust, omitStartTick, omitEndTick), runWorker("grenades", demoFileBuffer)]);
-    // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
-    demoTicks = processGrenades(grenades, processedTicks, ticksToAdjust, omitStartTick, omitEndTick);
-
-    if (!demoIsFaceit) {
-      const cleaned = cleanDemoData({
-        round_start_events,
-        round_freeze_end_events,
-        round_end_events,
-        round_officially_ended_events,
-        tick_data: processedTicks,
-      });
-
-      round_start_events = cleaned.round_start_events;
-      round_freeze_end_events = cleaned.round_freeze_end_events;
-      round_end_events = cleaned.round_end_events;
-      round_officially_ended_events = cleaned.round_officially_ended_events;
-      demoTicks = cleaned.tick_data;
-    }
-
-    demoEvents = {
-      roundStarts: round_start_events,
-      freezeEnds: round_freeze_end_events,
-      roundEnds: round_end_events,
-      roundOfficiallyEnded: round_officially_ended_events,
+    const demoRoundEvents = {
+      round_start_events,
+      round_freeze_end_events,
+      round_end_events,
+      round_officially_ended_events,
     };
 
+    // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
+
+    if (demoIsFaceit) {
+      // After rounds are processed remove the non-knife and non-regulation/OT rounds.
+    }
+
+    let [rounds, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer, demoRoundEvents), runWorker("grenades", demoFileBuffer)]);
+    // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
+    rounds = processGrenades(grenades, rounds);
+
     demoMapData = thisMapData;
+    demoRounds = rounds;
 
     returnObj = {
-      ticks: demoTicks,
-      // nades: grenades,
-      events: demoEvents,
+      rounds: demoRounds,
       mapData: thisMapData,
       scoreboard: demoScoreboard,
     };
+
+    // returnObj = {
+    //   ticks: demoTicks,
+    //   // nades: grenades,
+    //   events: demoEvents,
+    //   mapData: thisMapData,
+    //   scoreboard: demoScoreboard,
+    // };
 
     console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
 
     // return returnObj;
   } else if (demoFilePath.endsWith(".json")) {
     returnObj = {
-      ticks: demoTicks,
-      events: demoEvents,
+      rounds: demoRounds,
       mapData: demoMapData,
       scoreboard: demoScoreboard,
     };
@@ -227,9 +185,10 @@ app.whenReady().then(() => {
         const importedDemo = JSON.parse(data);
         demoHeader = importedDemo.header;
         demoScoreboard = importedDemo.scoreboard;
-        demoTicks = importedDemo.ticks;
-        demoEvents = importedDemo.events;
+        // demoTicks = importedDemo.ticks;
+        // demoEvents = importedDemo.events;
         demoMapData = importedDemo.mapdata;
+        demoRounds = importedDemo.rounds;
       } catch (err) {
         console.error("Error reading/parsing .json:", err);
       }
@@ -242,7 +201,8 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("demo:saveProcessedDemo", async () => {
-    let fileName = demoFilePath.split("\\").slice(-1)[0];
+    // Platform specific
+    let fileName = nodePath.basename(demoFilePath);
     let fileNameWithoutExt = fileName.endsWith(".dem") ? fileName.slice(0, -4) : fileName;
     let processedDemoFilePath = nodePath.join("saved", fileNameWithoutExt + ".json");
     console.log("Saving demo here:", processedDemoFilePath);
@@ -250,8 +210,7 @@ app.whenReady().then(() => {
     let processedDemo = {
       header: demoHeader,
       scoreboard: demoScoreboard,
-      ticks: demoTicks,
-      events: demoEvents,
+      rounds: demoRounds,
       mapdata: demoMapData,
     };
 

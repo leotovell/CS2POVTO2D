@@ -26,6 +26,39 @@ export function loadMapVars(mapdata) {
 
 const playerDirectionLineLength = 10;
 
+export function constructTickMap(rounds) {
+  let virtualTick = 0;
+  const tickMap = {};
+
+  rounds.forEach((round, round_index) => {
+    for (let actualTick = round.startTick; actualTick <= round.endTick; actualTick++) {
+      tickMap[virtualTick] = { round_index, actualTick };
+      virtualTick++;
+    }
+  });
+
+  tickStore.tickMap = tickMap;
+
+  // Whilst we are at it, let's grab the max virtual tick possible.
+  tickStore.maxTick = Object.keys(tickMap).length;
+}
+
+export function getTickData(tick) {
+  const map = tickStore.tickMap[tick];
+  if (!map) return null;
+
+  const round = tickStore.rounds[map.round_index];
+  return round.ticks[map.actualTick] || null;
+}
+
+export function getRoundInfo(tick) {
+  const map = tickStore.tickMap[tick];
+  if (!map) return null;
+
+  const round = tickStore.rounds[map.round_index];
+  return round;
+}
+
 /**
  * @description Updates the `Round Timer`, `Current Round` UI elements.
  * @author Leo Tovell
@@ -33,52 +66,48 @@ const playerDirectionLineLength = 10;
  * @exports
  * @param {Number} currentTick
  */
-export function updateRoundInfo(currentTick, roundStarts, freezeEnds) {
-  // find latest round start
-  let lastRoundStart = -Infinity;
-  for (const round of roundStarts) {
-    if (round.tick <= currentTick && round.tick > lastRoundStart) {
-      lastRoundStart = round.tick;
-    }
-  }
+export function updateRoundInfo() {
+  let round = getRoundInfo(tickStore.currentTick);
 
-  let lastFreezeEnds = -Infinity;
-  for (const end of freezeEnds) {
-    if (end.tick <= currentTick && end.tick > lastFreezeEnds) {
-      lastFreezeEnds = end.tick;
-    }
-  }
-  // Conditional: if lastRoundStart > lastFreezeEnds then pause the timer at 1:55s (we are in a freeze time or a timeout)
-  if (lastRoundStart > lastFreezeEnds) {
-    roundTimeMins.innerHTML = "1";
-    roundTimeSecs.innerHTML = "55";
-  } else {
-    // work out round tick
-    let roundTick = currentTick - lastFreezeEnds;
+  let roundTimeM = "1";
+  let roundTimeS = "55";
 
-    // Divide to get the current seconds elapsed
+  if (tickStore.currentDemoTick < round.freezeEndTick) {
+    let lengthOfFreezeTimeInTicks = round.freezeEndTick - round.startTick;
+    let ticksRemaining = lengthOfFreezeTimeInTicks - tickStore.currentDemoTick;
+    let timeRemaining = ticksRemaining / 64;
+    roundTimeM = Math.floor(timeRemaining / 60);
+    roundTimeS = String(Math.floor(timeRemaining % 60)).padStart(2, "0");
+  } else if (tickStore.currentDemoTick > round.freezeEndTick) {
+    // What tick are we at into the round?
+    let roundTick = tickStore.currentDemoTick - round.freezeEndTick;
     let secondsElapsedInRound = roundTick / 64;
-
-    // Minus from total round allowance (default = 115s (1m55s))
     let roundTimeRemaining = 115 - secondsElapsedInRound;
-
-    // Work out minutes + seconds and change HTML values;
-    roundTimeMins.innerHTML = Math.floor(roundTimeRemaining / 60);
-    roundTimeSecs.innerHTML = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
+    roundTimeM = Math.floor(roundTimeRemaining / 60);
+    roundTimeS = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
+  } else if (tickStore.currentDemoTick > round.endTick) {
+    let lengthOfEndOfRoundInTicks = round.officiallyEndedTick - round.endTick; // How many ticks between end of round and official end of round?
+    let ticksRemaining = lengthOfEndOfRoundInTicks - tickStore.currentDemoTick;
+    let timeRemaining = ticksRemaining / 64;
+    roundTimeM = Math.floor(timeRemaining / 60);
+    roundTimeS = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
   }
+
+  roundTimeMins.innerHTML = roundTimeM;
+  roundTimeSecs.innerHTML = roundTimeS;
 }
 
 // NEEDS FIXING
-export function renderRoundSegments(tickList, totalTicks) {
+export function renderRoundSegments(rounds) {
   const barWidth = scrubBar.offsetWidth;
   backgroundDiv.innerHTML = ""; // Clear previous
 
-  for (let i = 0; i < tickList.length - 1; i++) {
-    const startTick = tickList[i];
-    const endTick = tickList[i + 1];
+  rounds.forEach((round) => {
+    const startTick = round.startTick;
+    const endTick = round.endTick;
 
-    const startPercent = startTick / totalTicks;
-    const endPercent = endTick / totalTicks;
+    const startPercent = startTick / tickStore.maxTick;
+    const endPercent = endTick / tickStore.maxTick;
     const segmentWidth = (endPercent - startPercent) * barWidth;
 
     const segment = document.createElement("div");
@@ -86,9 +115,9 @@ export function renderRoundSegments(tickList, totalTicks) {
     segment.style.left = `${startPercent * 100}%`;
     segment.style.width = `${segmentWidth}%`;
     segment.style.height = "100%";
-    segment.style.background = i % 2 === 0 ? "#f0f0f0" : "#e0e0e0";
+    segment.style.background = round.roundNumber % 2 === 0 ? "#f0f0f0" : "#e0e0e0";
     backgroundDiv.appendChild(segment);
-  }
+  });
 }
 
 /**
@@ -157,29 +186,32 @@ export function drawGrenade(grenade) {
   ctx.fill();
 }
 
-export function seekToDemoTime(scrubbedTick, tickKeys) {
+export function seekToDemoTime(scrubbedTick) {
   if (settings.multiRoundOverlayMode) {
     tickStore.multiRoundMasterTick = scrubbedTick;
   } else {
-    let newIndex = tickKeys.indexOf(scrubbedTick);
-    if (newIndex === -1) {
-      // fallback to closest tick
-      newIndex = tickKeys.findIndex((tick) => tick >= scrubbedTick);
-      if (newIndex === -1) newIndex = tickKeys.length - 1;
-    }
-    tickStore.currentTick = newIndex;
+    tickStore.currentTick = scrubbedTick;
   }
 }
 
-export function goToRound(roundNumber, roundStarts) {
-  // Round ticks are stored in the variable (roundStarts) - can identify knife rounds later.
-  tickStore.currentTick = roundStarts[roundNumber];
+export function goToRound(roundNumber) {
+  // 1. Find the real tick that the round starts at
+  const roundStartTick = tickStore.rounds.find((round) => round.roundNumber === roundNumber)?.tick;
+  if (roundStartTick === undefined) return console.warn(`Round ${roundNumber} not found`);
+
+  // 2. Inverse search tickMap: find the virtual tick that maps to this actual tick
+  const virtualTick = Object.entries(tickStore.tickMap).find(([_, actualTick]) => actualTick === roundStartTick)?.[0];
+
+  if (virtualTick === undefined) return console.warn(`No virtual tick found for tick ${roundStartTick}`);
+
+  // 3. Set the virtual tick (convert from string to number if needed)
+  tickStore.currentTick = parseInt(virtualTick);
 }
 
-export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImage) {
-  updateRoundInfo(tickKey, roundStarts, freezeEnds);
+export function drawTick(tick, mapImage) {
+  updateRoundInfo();
 
-  currentTickSpan.innerHTML = tickStore.currentTick + " of " + lastTick;
+  currentTickSpan.innerHTML = tickStore.currentTick + " of " + tickStore.maxTick;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
@@ -198,15 +230,15 @@ export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapIm
 
       if (tick.grenades) {
         for (const nade of tick.grenades) {
-          if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
+          if (!settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
             drawGrenade(nade);
           }
         }
       }
     }
 
-    scrubBar.max = lastTick;
-    scrubBar.value = tickKey;
+    scrubBar.max = tickStore.maxTick;
+    scrubBar.value = tickStore.currentTick;
   } else {
     // MULTIROUND MODE - OVERLAYED ALL ROUNDS SPECIFIED
 
