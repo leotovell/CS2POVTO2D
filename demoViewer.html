@@ -159,10 +159,67 @@
         <strong>Rounds</strong>
         <span class="drag-handle" id="dragHandle">⠿</span>
       </div>
-      <div class="rounds-list">
-        <ul id="multi-rounds-list" class="list-group">
-          <!-- Rounds 1 to 13 -->
-        </ul>
+
+      <!-- TOGGLE BUTTONS INSERTED HERE -->
+      <div class="px-3 pt-2">
+        <div class="btn-group w-100" role="group" aria-label="Team Toggle">
+          <button type="button" class="btn btn-light btn-toggle btn-toggle-ct selected" id="btn-ct">
+            <img src="./img/logo/ct.png" alt="CT Side" />
+          </button>
+          <button type="button" class="btn btn-light btn-toggle btn-toggle-t" id="btn-t">
+            <img src="./img/logo/t.png" alt="T Side" />
+          </button>
+        </div>
+      </div>
+
+      <div class="px-3 pt-2">
+        <label class="form-label mb-1 fw-bold small">Win Conditions</label>
+        <div class="multi-win-select" style="padding-right: 10px">
+          <!-- Bomb Exploded -->
+          <input type="checkbox" class="btn-check" id="btn-bomb_exploded" autocomplete="off" checked />
+          <label class="btn" for="btn-bomb_exploded">
+            <img src="./img/logo/bomb.svg" alt="Bomb Exploded" />
+            <span class="status-icon">✔</span>
+          </label>
+
+          <!-- Bomb Defused -->
+          <input type="checkbox" class="btn-check" id="btn-bomb_defused" autocomplete="off" checked />
+          <label class="btn" for="btn-bomb_defused">
+            <img src="./img/logo/bomb_defused.svg" alt="Bomb Defused" />
+            <span class="status-icon">✔</span>
+          </label>
+
+          <!-- Time Ran Out -->
+          <input type="checkbox" class="btn-check" id="btn-time_ran_out" autocomplete="off" checked />
+          <label class="btn" for="btn-time_ran_out">
+            <img src="./img/logo/time_ran_out.svg" alt="Time Ran Out" />
+            <span class="status-icon">✔</span>
+          </label>
+
+          <!-- Killed -->
+          <input type="checkbox" class="btn-check" id="btn-killed" autocomplete="off" checked />
+          <label class="btn" for="btn-killed">
+            <img src="./img/logo/killed.svg" alt="Killed" />
+            <span class="status-icon">✔</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="px-3 pt-2">
+        <label class="form-label mb-1 fw-bold small">Include OT?</label>
+        <div class="btn-group w-100 btn-group-sm" role="group" aria-label="Include OT Toggle">
+          <button type="button" class="btn btn-outline-secondary btn-ot selected" id="ot-no">No</button>
+          <button type="button" class="btn btn-outline-secondary btn-ot" id="ot-yes">Yes</button>
+          <button type="button" class="btn btn-outline-secondary btn-ot" id="ot-only">Only</button>
+        </div>
+      </div>
+      <div class="px-3 pt-2">
+        <label class="form-label mb-1 fw-bold small">Rounds</label>
+        <div class="rounds-list">
+          <ul id="multi-rounds-list" class="list-group">
+            <!-- Rounds 1 to 13 -->
+          </ul>
+        </div>
       </div>
     </div>
 

@@ -56,8 +56,95 @@ export function enableElement(element) {
   element.disabled = false;
 }
 
+let OTSelection = "y"; // n = no, y = yes, o = only
+
+function updateMultiRoundsList(element) {
+  for (const round of element.children) {
+    console.log(round);
+  }
+}
+
 export function setupMultiRoundsPanel(element, rounds) {
+  // Add a presets tab - CT/T Side to show each team on one side only.
+  // Include Overtimes (if exists) three-way-toggle. No-Yes-ONLY
+  // If ONLY OT we also get a selection of OT's to choose (also hide reguation rounds.)
+
+  // Setup the toggle listeners:
+  const ctBtn = document.getElementById("btn-ct");
+  const tBtn = document.getElementById("btn-t");
+
+  ctBtn.addEventListener("click", () => {
+    // CT SIDE SELECT
+    ctBtn.classList.add("selected");
+    tBtn.classList.remove("selected");
+
+    // Also, unselect all rounds, and just select the rounds where team A is on ct side (first half + check with OT);
+  });
+
+  tBtn.addEventListener("click", () => {
+    // T SIDE SELECT
+    tBtn.classList.add("selected");
+    ctBtn.classList.remove("selected");
+  });
+
+  // OT Buttons
+  const otButtons = document.querySelectorAll(".btn-ot");
+  otButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      otButtons.forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+    });
+  });
+
+  // Win Conditions
+  document.getElementById("btn-bomb_exploded").addEventListener("click", (ev) => {
+    if (ev.target.checked) {
+      settings.winConditions.add("bomb_exploded");
+    } else {
+      settings.winConditions.delete("bomb_exploded");
+    }
+    // Update multi-round list + re-draw.
+    updateMultiRoundsList(element);
+  });
+
+  document.getElementById("btn-time_ran_out").addEventListener("click", (ev) => {
+    if (ev.target.checked) {
+      settings.winConditions.add("time_ran_out");
+    } else {
+      settings.winConditions.delete("time_ran_out");
+    }
+    // Update multi-round list + re-draw.
+  });
+
+  document.getElementById("btn-bomb_exploded").addEventListener("click", (ev) => {
+    if (ev.target.checked) {
+      settings.winConditions.add("t_killed");
+      settings.winConditions.add("ct_killed");
+    } else {
+      settings.winConditions.delete("t_killed");
+      settings.winConditions.delete("ct_killed");
+    }
+    // Update multi-round list + re-draw.
+  });
+
+  document.getElementById("btn-bomb_defused").addEventListener("click", (ev) => {
+    if (ev.target.checked) {
+      settings.winConditions.add("bomb_defused");
+    } else {
+      settings.winConditions.delete("bomb_defused");
+    }
+    // Update multi-round list + re-draw.
+  });
+
+  // presetsCont = document.createElement;
   rounds.forEach((round) => {
+    // Add custom attributes which denote:
+    // Half: 1 or 2?
+    // OT: -1 or 1,2,3,4... etc?
+    // If yes: What half of ot?
+    // Can then combine OT 1 + half 1 means CT side is a
+    // Let's say OT 1 side 2 is CT side is b etc.
+
     const roundListItem = document.createElement("li");
     roundListItem.className = "list-group-item d-flex align-items-center";
     roundListItem.style.color = round.winner == "T" ? "orange" : "blue";
@@ -68,10 +155,8 @@ export function setupMultiRoundsPanel(element, rounds) {
     roundCheckbox.id = "round_" + round.roundNumber;
     roundCheckbox.checked = true;
 
-    const roundWinReason = document.createElement("span");
     const winReasonSVG = document.createElement("svg");
 
-    // roundWinReason.innerHTML =
     switch (round.winReason) {
       case "bomb_defused":
         fetch("./img/logo/bomb_defused.svg")
@@ -159,16 +244,21 @@ export function setupMultiRoundsPanel(element, rounds) {
     // By default, let's add every round to the tickStore as all the tickboxes start checked anyway.
     tickStore.multiRoundSelection.add(round);
 
+    const labelWrapper = document.createElement("div");
+    labelWrapper.className = "d-flex align-items-center justify-content-between w-100";
+
     const roundLabel = document.createElement("label");
-    roundLabel.className = "form-check-label";
+    roundLabel.className = "form-check-label mb-0";
     roundLabel.setAttribute("for", "round_" + round.roundNumber);
-    roundLabel.innerHTML = "Round " + round.roundNumber;
+    roundLabel.textContent = "Round " + round.roundNumber;
+
+    winReasonSVG.classList.add("ms-2"); // optional small left margin
+
+    labelWrapper.append(roundLabel);
+    labelWrapper.append(winReasonSVG);
 
     roundListItem.append(roundCheckbox);
-    roundListItem.append(roundLabel);
-    roundWinReason.innerHTML = round.winReason;
-    roundListItem.append(roundWinReason);
-    roundListItem.append(winReasonSVG);
+    roundListItem.append(labelWrapper);
 
     element.append(roundListItem);
   });

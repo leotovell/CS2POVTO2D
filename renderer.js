@@ -185,6 +185,9 @@ export let settings = {
 
   // Multi-round overlay
   multiRoundOverlayMode: false,
+  OTSelection: "y", //n = no, y = yes, o = only
+  sideSelected: "CT",
+  winConditions: new Set(["bomb_defused", "bomb_detonated", "t_killed", "ct_killed", "time_ran_out"]), // All by default.
 };
 
 export const TColor = "#f79b4e";
