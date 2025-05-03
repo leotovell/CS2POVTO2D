@@ -306,17 +306,20 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
   // Step 1: Build structured round array
   const rounds = [];
 
+  let teamAScore = 0;
+  let teamBScore = 0;
+
   for (let i = 0; i < round_start_events.length; i++) {
     const thisRoundNum = round_start_events[i].round;
     const nextRoundNum = round_start_events[i + 1]?.round ?? -1;
-
     if (thisRoundNum == nextRoundNum) continue;
+
+    const roundNumber = rounds.length + 1;
 
     const startEvent = round_start_events[i];
     const startTick = startEvent?.tick;
-    const freezeEndTick = round_freeze_end_events.filter((ev) => ev.tick > startTick).sort((a, b) => a.tick > b.tick)[0].tick;
+    const freezeEndTick = round_freeze_end_events.filter((ev) => ev.tick > startTick).sort((a, b) => a.tick - b.tick)[0].tick;
 
-    // const endTick = round_end_events[rounds.length]?.tick ?? round_start_events[i + 1]?.tick - 1; // fallback if round_end missing
     const endEvent = round_end_events.filter((ev) => ev.tick > startTick).sort((a, b) => a.tick - b.tick)[0];
     const endTick = endEvent?.tick;
     const officiallyEndedTick = round_officially_ended_events.filter((ev) => ev.tick > endTick).sort((a, b) => a.tick - b.tick)[0]?.tick ?? Infinity;
@@ -330,28 +333,62 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
         }
       }
     } else {
-      // No officially ended tick — go to the end of processedTicks
       const allTicks = Object.keys(processedTicks)
         .map(Number)
         .filter((t) => t >= startTick)
         .sort((a, b) => a - b);
-
       for (const tick of allTicks) {
         roundTicks[tick] = processedTicks[tick];
       }
     }
 
+    // Determine what side Team A is on
+    let teamASide;
+    if (roundNumber <= 12) {
+      teamASide = "CT";
+    } else if (roundNumber <= 24) {
+      teamASide = "T";
+    } else {
+      // Overtime logic — each OT half is 3 rounds, swap each half
+      const otIndex = roundNumber - 25; // round 25 is first OT round
+      const otHalf = Math.floor(otIndex / 3);
+      const inHalf = otIndex % 6 < 3; // true for first half of each OT
+
+      if (otHalf % 2 === 0) {
+        // OT 1, OT 3, etc.
+        teamASide = inHalf ? "T" : "CT";
+      } else {
+        // OT 2, OT 4, etc.
+        teamASide = inHalf ? "CT" : "T";
+      }
+    }
+
+    const beforeScoreA = teamAScore;
+    const beforeScoreB = teamBScore;
+
+    // Increment correct team score
+    if (endEvent?.winner === teamASide) {
+      teamAScore++;
+    } else if (endEvent?.winner === "T" || endEvent?.winner === "CT") {
+      teamBScore++;
+    }
+
     rounds.push({
-      roundNumber: rounds.length + 1,
-      startTick: startTick,
+      roundNumber,
+      startTick,
       freezeEndTick,
-      endTick: endTick,
-      officiallyEndedTick: officiallyEndedTick != Infinity ? officiallyEndedTick : endTick,
-      isLastRound: officiallyEndedTick == Infinity,
-      winner: endEvent.winner,
-      winReason: endEvent.reason,
+      endTick,
+      officiallyEndedTick: officiallyEndedTick !== Infinity ? officiallyEndedTick : endTick,
+      isLastRound: officiallyEndedTick === Infinity,
+      winner: endEvent?.winner,
+      winReason: endEvent?.reason,
       ticks: roundTicks,
-      events: [], // You can fill this in later
+      beforeScoreA,
+      beforeScoreB,
+      afterScoreA: teamAScore,
+      afterScoreB: teamBScore,
+      events: [],
+      teamASide, // optional if frontend needs this info too
     });
   }
 

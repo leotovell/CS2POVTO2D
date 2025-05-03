@@ -9,8 +9,12 @@ const backgroundDiv = document.getElementById("scrubBarBackground");
 const currentTickSpan = document.getElementById("currentTickSpan");
 const scrubBar = document.getElementById("scrubBar");
 const roundSelect = document.getElementById("roundSelect");
+const teamAlphaNameSpan = document.getElementById("teamAlphaName");
+const teamAlphaScoreSpan = document.getElementById("teamAlphaScore");
+const teamBetaNameSpan = document.getElementById("teamBetaName");
+const teamBetaScoreSpan = document.getElementById("teamBetaScore");
 
-import { settings, tickStore } from "../renderer.js";
+import { settings, tickStore, CTColor, TColor } from "../renderer.js";
 
 let canvas;
 let ctx;
@@ -40,8 +44,6 @@ export function constructTickMap(rounds) {
 
   tickStore.tickMap = tickMap;
 
-  console.log(tickStore.tickMap);
-
   // Whilst we are at it, let's grab the max virtual tick possible.
   tickStore.maxTick = Object.keys(tickMap).length;
 }
@@ -67,8 +69,6 @@ export function getVirtualTickFromDemoTick(demoTick) {
     .map(([virtual, actual]) => [virtual, actual.actualTick])
     .sort((a, b) => a[1] - b[1]);
 
-  console.log(tickPairs);
-
   // Find the closest virtual tick (less than or equal to demoTick)
   let closest = undefined;
   for (const [virtual, actual] of tickPairs) {
@@ -81,6 +81,9 @@ export function getVirtualTickFromDemoTick(demoTick) {
 
   return closest;
 }
+
+const teamAName = localStorage.getItem("teamAName");
+const teamBName = localStorage.getItem("teamBName");
 
 /**
  * @description Updates the `Round Timer`, `Current Round` UI elements.
@@ -98,9 +101,6 @@ export function updateRoundInfo() {
   let roundTimeS = "55";
 
   if (tickStore.currentDemoTick < round.freezeEndTick) {
-    // let lengthOfFreezeTimeInTicks = round.freezeEndTick - round.startTick;
-    // let ticksRemaining = lengthOfFreezeTimeInTicks - (tickStore.currentDemoTick - round.freezeEndTick);
-    // let timeRemaining = ticksRemaining / 64;
     let lengthOfPreround = round.freezeEndTick - round.startTick;
     let ticksIntoPreround = tickStore.currentDemoTick - round.startTick;
     let timeRemaining = (lengthOfPreround - ticksIntoPreround) / 64;
@@ -114,9 +114,6 @@ export function updateRoundInfo() {
     roundTimeM = Math.floor(roundTimeRemaining / 60);
     roundTimeS = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
   } else if (tickStore.currentDemoTick > round.endTick) {
-    // let lengthOfRoundEnd = round.officiallyEndedTick - round.endTick; // How many ticks between end of round and official end of round?
-    // let ticksRemaining = lengthOfEndOfRoundInTicks - tickStore.currentDemoTick;
-    // let timeRemaining = ticksRemaining / 64;
     let lengthOfRoundEnd = round.officiallyEndedTick - round.endTick;
     let ticksIntoRoundEnd = tickStore.currentDemoTick - round.endTick;
     let timeRemaining = (lengthOfRoundEnd - ticksIntoRoundEnd) / 64;
@@ -126,6 +123,43 @@ export function updateRoundInfo() {
 
   roundTimeMins.innerHTML = roundTimeM;
   roundTimeSecs.innerHTML = roundTimeS;
+
+  // Now update the team scores
+
+  const isPreEnd = tickStore.currentDemoTick < round.endTick;
+  const teamAlphaScore = isPreEnd ? round.beforeScoreA : round.afterScoreA;
+  const teamBetaScore = isPreEnd ? round.beforeScoreB : round.afterScoreB;
+
+  // Calculate side for team A
+  let aSide;
+  if (round.roundNumber <= 12) {
+    aSide = "ct";
+  } else if (round.roundNumber <= 24) {
+    aSide = "t";
+  } else {
+    const otRound = round.roundNumber - 25;
+    const otHalf = Math.floor(otRound / 3);
+    const isFirstHalf = otRound % 6 < 3;
+
+    if ((otHalf % 2 === 0 && isFirstHalf) || (otHalf % 2 === 1 && !isFirstHalf)) {
+      aSide = "t";
+    } else {
+      aSide = "ct";
+    }
+  }
+
+  // Set scores
+  teamAlphaScoreSpan.innerHTML = teamAlphaScore;
+  teamBetaScoreSpan.innerHTML = teamBetaScore;
+
+  // Apply inline color styling
+  if (aSide === "ct") {
+    teamAlphaScoreSpan.style.color = "#4ea5f7"; // CT blue
+    teamBetaScoreSpan.style.color = "#f79b4e"; // T orange
+  } else {
+    teamAlphaScoreSpan.style.color = "#f79b4e"; // T orange
+    teamBetaScoreSpan.style.color = "#4ea5f7"; // CT blue
+  }
 }
 
 // NEEDS FIXING
@@ -178,7 +212,9 @@ export function drawPlayer(player) {
   ctx.fillStyle = "white";
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
-  ctx.fillText(player.name, x, y - 10);
+  if (player.alive === true) {
+    ctx.fillText(player.name, x, y - 10);
+  }
 
   // Player direction line
   let yawAsDegrees = -player.yaw * (Math.PI / 180);
@@ -193,19 +229,33 @@ export function drawPlayer(player) {
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(finishX, finishY);
-    ctx.strokeStyle = player.team_num == 2 ? "orange" : "blue";
+    ctx.strokeStyle = player.team_num == 2 ? TColor : CTColor;
     ctx.lineWidth = 2;
     ctx.stroke();
   }
 
   // Player Circle
+  const radius = 5;
   ctx.beginPath();
-  ctx.arc(x, y, 5, 0, 2 * Math.PI);
-  ctx.fillStyle = player.team_num == 2 ? "orange" : "blue";
-  if (player.alive == false) {
-    ctx.fillStyle = "gray";
+  ctx.fillStyle = player.team_num == 2 ? TColor : CTColor;
+
+  if (player.alive === false) {
+    // Draw a cross instead of a circle
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x - radius, y - radius);
+    ctx.lineTo(x + radius, y + radius);
+    ctx.moveTo(x + radius, y - radius);
+    ctx.lineTo(x - radius, y + radius);
+    ctx.stroke();
+  } else {
+    // Draw a filled circle
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fill();
   }
-  ctx.fill();
 }
 
 export function drawGrenade(grenade) {

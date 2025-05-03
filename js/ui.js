@@ -1,6 +1,7 @@
 // write the UI updating stuff here (NOT THE CANVAS UPDATES);
 
 import { settings, settingsToConfigure, tickStore } from "../renderer.js";
+// import bombSVG from "../img/logo/bomb.svg";
 
 // export as required
 
@@ -59,6 +60,7 @@ export function setupMultiRoundsPanel(element, rounds) {
   rounds.forEach((round) => {
     const roundListItem = document.createElement("li");
     roundListItem.className = "list-group-item d-flex align-items-center";
+    roundListItem.style.color = round.winner == "T" ? "orange" : "blue";
 
     const roundCheckbox = document.createElement("input");
     roundCheckbox.type = "checkbox";
@@ -67,7 +69,82 @@ export function setupMultiRoundsPanel(element, rounds) {
     roundCheckbox.checked = true;
 
     const roundWinReason = document.createElement("span");
-    roundWinReason.innerHTML = round.winner + " | " + round.reason;
+    const winReasonSVG = document.createElement("svg");
+
+    // roundWinReason.innerHTML =
+    switch (round.winReason) {
+      case "bomb_defused":
+        fetch("./img/logo/bomb_defused.svg")
+          .then((res) => res.text())
+          .then((data) => {
+            winReasonSVG.innerHTML = data;
+
+            const svgElement = winReasonSVG.querySelector("svg");
+
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            svgElement.style.width = "30px";
+            svgElement.style.height = "30px";
+
+            svgElement.removeAttribute("fill");
+            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+          });
+        break;
+      case "bomb_exploded":
+        fetch("./img/logo/bomb.svg")
+          .then((res) => res.text())
+          .then((data) => {
+            winReasonSVG.innerHTML = data;
+
+            const svgElement = winReasonSVG.querySelector("svg");
+
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            svgElement.style.width = "30px";
+            svgElement.style.height = "30px";
+
+            svgElement.removeAttribute("fill");
+            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+          });
+        break;
+      case "t_killed":
+      case "ct_killed":
+        fetch("./img/logo/killed.svg")
+          .then((res) => res.text())
+          .then((data) => {
+            winReasonSVG.innerHTML = data;
+
+            const svgElement = winReasonSVG.querySelector("svg");
+
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            svgElement.style.width = "30px";
+            svgElement.style.height = "30px";
+
+            svgElement.removeAttribute("fill");
+            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+          });
+        break;
+      case "time_ran_out":
+        fetch("./img/logo/time_ran_out.svg")
+          .then((res) => res.text())
+          .then((data) => {
+            winReasonSVG.innerHTML = data;
+
+            const svgElement = winReasonSVG.querySelector("svg");
+
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            svgElement.style.width = "30px";
+            svgElement.style.height = "30px";
+
+            svgElement.removeAttribute("fill");
+            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+          });
+        break;
+      default:
+        break;
+    }
 
     // Add event listener
     roundCheckbox.addEventListener("change", () => {
@@ -89,7 +166,9 @@ export function setupMultiRoundsPanel(element, rounds) {
 
     roundListItem.append(roundCheckbox);
     roundListItem.append(roundLabel);
+    roundWinReason.innerHTML = round.winReason;
     roundListItem.append(roundWinReason);
+    roundListItem.append(winReasonSVG);
 
     element.append(roundListItem);
   });

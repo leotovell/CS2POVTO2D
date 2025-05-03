@@ -136,11 +136,19 @@
 
       <button id="multiRoundOverlayToggleBtn" type="button" class="btn btn-primary">Multi-round mode</button>
 
-      <div class="mt-4 position-relative" style="height: 30px">
+      <div class="my-4 position-relative" style="height: 30px">
         <label for="scrubBar" class="form-label">Scrub Time</label>
         <div id="scrubBarBackground" style="position: absolute; top: 22px; left: 0; right: 0; height: 8px; background: transparent; z-index: 0; pointer-events: none"></div>
 
         <input type="range" class="form-range position-relative" id="scrubBar" min="0" max="100" value="0" step="1" style="z-index: 1; background: transparent" />
+      </div>
+
+      <div id="scoreContainer" class="d-flex justify-content-between align-items-center">
+        <span id="teamAlphaName" class="me-auto">teamA</span>
+        <span id="teamAlphaScore" class="mx-3 fs-3 fw-bold text-center">0</span>
+        <span class="mx-3 fs-3 fw-bold text-center">:</span>
+        <span id="teamBetaScore" class="mx-3 fs-3 fw-bold text-center">0</span>
+        <span id="teamBetaName" class="ms-auto">teamB</span>
       </div>
 
       <canvas id="minimap" width="1024" height="1024"></canvas>

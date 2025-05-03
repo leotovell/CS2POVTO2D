@@ -50,7 +50,7 @@ function initHomePage() {
       isDemoSelected = true;
       demoPath = filePaths[0];
       localStorage.setItem("demoPath", demoPath);
-      demoFileNameSpan.innerHTML = filePaths[0].split("\\").slice(-1)[0];
+      demoFileNameSpan.innerHTML = filePaths[0].split("/").slice(-1)[0];
       demoFileNameSpan.style.visibility = "visible";
       removeDemoBtn.style.visibility = "visible";
     } else {
@@ -104,6 +104,9 @@ function initDemoPreviewPage() {
     const teamBScore = demoScoreboard.teamBeta.score;
     const teamAName = demoScoreboard.teamAlpha.name;
     const teamBName = demoScoreboard.teamBeta.name;
+
+    localStorage.setItem("teamAName", teamAName);
+    localStorage.setItem("teamBName", teamBName);
 
     // Set score
     teamAScoreSpan.innerHTML = teamAScore;
@@ -184,7 +187,8 @@ export let settings = {
   multiRoundOverlayMode: false,
 };
 
-// NEXT WORK ON LAYERING ROUNDS OVER EACH OTHER
+export const TColor = "#f79b4e";
+export const CTColor = "#4ea5f7";
 
 export let settingsToConfigure = [
   { name: "showNadesThrownByHiddenPlayers", type: "checkbox", defaultValue: false },
@@ -243,6 +247,9 @@ async function initDemoReviewPage() {
       alert("Failed to save demo.");
     }
   });
+
+  document.getElementById("teamAlphaName").innerHTML = localStorage.getItem("teamAName");
+  document.getElementById("teamBetaName").innerHTML = localStorage.getItem("teamBName");
 
   // Process and store the demo ticks
   enableLoader(loader, loaderText, "Processing Demo...");
@@ -345,6 +352,7 @@ async function initDemoReviewPage() {
       clearTimeout(animationTimeout); // Stop any current animation
 
       const newTick = parseInt(scrubBar.value);
+      console.log(newTick);
       seekToDemoTime(newTick);
       tickStore.currentRound = getRoundInfo(tickStore.currentTick);
 
