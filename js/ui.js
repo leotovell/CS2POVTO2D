@@ -56,11 +56,94 @@ export function enableElement(element) {
   element.disabled = false;
 }
 
-let OTSelection = "y"; // n = no, y = yes, o = only
-
 function updateMultiRoundsList(element) {
+  console.log(settings);
+  const roundNumToEl = {};
+
+  tickStore.multiRoundSelection.clear();
   for (const round of element.children) {
-    console.log(round);
+    const roundNum = round.firstChild.id.replace("round_", "");
+    round.firstChild.checked = false;
+    roundNumToEl[roundNum] = round.firstChild;
+  }
+
+  const sideSet = new Set();
+  const allRoundsInlcudingOTSet = new Set();
+  const winConditionSet = new Set();
+
+  for (const round of tickStore.rounds) {
+    const rn = round.roundNumber;
+
+    console.log(round.winReason);
+
+    let selectedTeamIsCT = false;
+
+    if (settings.teamSelected === settings.teamA) {
+      // Team A: CT in rounds 1–12 and selected OT halves
+      if (rn <= 12) {
+        selectedTeamIsCT = true;
+      } else if (rn > 24) {
+        const otRound = rn - 25;
+        const otHalf = Math.floor(otRound / 6);
+        const roundInHalf = otRound % 6;
+        const isFirstHalf = roundInHalf < 3;
+
+        selectedTeamIsCT = (otHalf % 2 === 0 && isFirstHalf) || (otHalf % 2 === 1 && !isFirstHalf);
+      }
+    } else {
+      // Team B: CT in rounds 13–24 and inverse OT halves
+      if (rn > 12 && rn <= 24) {
+        selectedTeamIsCT = true;
+      } else if (rn > 24) {
+        const otRound = rn - 25;
+        const otHalf = Math.floor(otRound / 6);
+        const roundInHalf = otRound % 6;
+        const isFirstHalf = roundInHalf < 3;
+
+        selectedTeamIsCT = (otHalf % 2 === 0 && !isFirstHalf) || (otHalf % 2 === 1 && isFirstHalf);
+      }
+    }
+
+    // Now filter by sideSelected ("CT" or "T")
+    const wantsCT = settings.sideSelected === "CT";
+    if (selectedTeamIsCT === wantsCT) {
+      sideSet.add(round);
+    }
+
+    // OT selection
+    if (settings.OTSelection === -1) {
+      // Only regulation.
+      if (round.roundNumber < 25) {
+        allRoundsInlcudingOTSet.add(round);
+      }
+    } else if (settings.OTSelection === 0) {
+      allRoundsInlcudingOTSet.add(round);
+    } else if (settings.OTSelection === 1) {
+      if (round.roundNumber > 24) {
+        allRoundsInlcudingOTSet.add(round);
+      }
+    }
+
+    // Win conditions
+    if (settings.winConditions.has(round.winReason)) {
+      winConditionSet.add(round);
+    }
+  }
+
+  // Build the intersection of all the sets to get the rounds to show.
+
+  console.log(sideSet);
+  console.log(allRoundsInlcudingOTSet);
+  console.log(winConditionSet);
+
+  const finalRounds = new Set([...sideSet].filter((item) => allRoundsInlcudingOTSet.has(item) && winConditionSet.has(item)));
+
+  for (const round of finalRounds) {
+    const el = roundNumToEl[round.roundNumber];
+    if (el) {
+      el.checked = true;
+      tickStore.multiRoundSelection.add(round);
+    }
   }
 }
 
@@ -68,6 +151,19 @@ export function setupMultiRoundsPanel(element, rounds) {
   // Add a presets tab - CT/T Side to show each team on one side only.
   // Include Overtimes (if exists) three-way-toggle. No-Yes-ONLY
   // If ONLY OT we also get a selection of OT's to choose (also hide reguation rounds.)
+
+  const teamAOption = document.getElementById("teamAOption");
+  const teamBOption = document.getElementById("teamBOption");
+
+  teamAOption.value = settings.teamA;
+  teamBOption.value = settings.teamB;
+  teamAOption.innerHTML = settings.teamA;
+  teamBOption.innerHTML = settings.teamB;
+  // Set up team selection listeners
+  document.getElementById("teamSelectForFilter").addEventListener("click", (ev) => {
+    settings.teamSelected = ev.target.selectedOptions[0].value;
+    updateMultiRoundsList(element);
+  });
 
   // Setup the toggle listeners:
   const ctBtn = document.getElementById("btn-ct");
@@ -77,6 +173,8 @@ export function setupMultiRoundsPanel(element, rounds) {
     // CT SIDE SELECT
     ctBtn.classList.add("selected");
     tBtn.classList.remove("selected");
+    settings.sideSelected = "CT";
+    updateMultiRoundsList(element);
 
     // Also, unselect all rounds, and just select the rounds where team A is on ct side (first half + check with OT);
   });
@@ -85,14 +183,27 @@ export function setupMultiRoundsPanel(element, rounds) {
     // T SIDE SELECT
     tBtn.classList.add("selected");
     ctBtn.classList.remove("selected");
+    settings.sideSelected = "T";
+    updateMultiRoundsList(element);
   });
 
   // OT Buttons
   const otButtons = document.querySelectorAll(".btn-ot");
   otButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (ev) => {
       otButtons.forEach((b) => b.classList.remove("selected"));
       btn.classList.add("selected");
+      switch (ev.target.innerHTML) {
+        case "No":
+          settings.OTSelection = -1;
+          break;
+        case "Yes":
+          settings.OTSelection = 0;
+          break;
+        case "Only":
+          settings.OTSelection = 1;
+      }
+      updateMultiRoundsList(element);
     });
   });
 
@@ -107,16 +218,17 @@ export function setupMultiRoundsPanel(element, rounds) {
     updateMultiRoundsList(element);
   });
 
-  document.getElementById("btn-time_ran_out").addEventListener("click", (ev) => {
+  document.getElementById("btn-bomb_defused").addEventListener("click", (ev) => {
     if (ev.target.checked) {
-      settings.winConditions.add("time_ran_out");
+      settings.winConditions.add("bomb_defused");
     } else {
-      settings.winConditions.delete("time_ran_out");
+      settings.winConditions.delete("bomb_defused");
     }
     // Update multi-round list + re-draw.
+    updateMultiRoundsList(element);
   });
 
-  document.getElementById("btn-bomb_exploded").addEventListener("click", (ev) => {
+  document.getElementById("btn-killed").addEventListener("click", (ev) => {
     if (ev.target.checked) {
       settings.winConditions.add("t_killed");
       settings.winConditions.add("ct_killed");
@@ -125,15 +237,17 @@ export function setupMultiRoundsPanel(element, rounds) {
       settings.winConditions.delete("ct_killed");
     }
     // Update multi-round list + re-draw.
+    updateMultiRoundsList(element);
   });
 
-  document.getElementById("btn-bomb_defused").addEventListener("click", (ev) => {
+  document.getElementById("btn-time_ran_out").addEventListener("click", (ev) => {
     if (ev.target.checked) {
-      settings.winConditions.add("bomb_defused");
+      settings.winConditions.add("time_ran_out");
     } else {
-      settings.winConditions.delete("bomb_defused");
+      settings.winConditions.delete("time_ran_out");
     }
     // Update multi-round list + re-draw.
+    updateMultiRoundsList(element);
   });
 
   // presetsCont = document.createElement;

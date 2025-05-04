@@ -26,15 +26,16 @@ _name = in development_<br>
 | **Usability/QOL**     |
 | -> Scrubbing          | &check; | &check;  |
 | -> Round Timer        | &cross; | &check;  |
-| -> Skip To Round      | &cross; |   Leo    |
-| -> Player Filters     |   Leo   |   Leo    |
-| -> Round Filters      |   Leo   |   Leo    |
+| -> Skip To Round      | &cross; | &check;  |
+| -> Player Filters     | &cross; | &check;  |
+| -> Round Filters      | &cross; | &check;  |
 
 TODO:
 
-- fix the goToRound feature
 - Add second layer to map for multi-layer maps such as de_nuke
 - Add c4 carrier + c4 planting/defusing.
+- Only show OT filter if game has OT.
+- If filters make no difference to current selection, disable their buttons, i.e. in a game with no bomb_defusals disable that option.
 
 ## Installation
 

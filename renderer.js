@@ -175,6 +175,10 @@ export let tickStore = {
 };
 
 export let settings = {
+  // Team side settings
+  teamA: "", // CT Start
+  teamB: "", // T Start
+
   // Player Filter Settings
   hiddenPlayers: new Set(),
   showNadesThrownByHiddenPlayers: false,
@@ -185,7 +189,8 @@ export let settings = {
 
   // Multi-round overlay
   multiRoundOverlayMode: false,
-  OTSelection: "y", //n = no, y = yes, o = only
+  teamSelected: "",
+  OTSelection: 0, //-1 = no, 0 = yes, 1 = only
   sideSelected: "CT",
   winConditions: new Set(["bomb_defused", "bomb_detonated", "t_killed", "ct_killed", "time_ran_out"]), // All by default.
 };
@@ -251,9 +256,16 @@ async function initDemoReviewPage() {
     }
   });
 
-  document.getElementById("teamAlphaName").innerHTML = localStorage.getItem("teamAName");
-  document.getElementById("teamBetaName").innerHTML = localStorage.getItem("teamBName");
+  const teamAName = localStorage.getItem("teamAName");
+  const teamBName = localStorage.getItem("teamBName");
 
+  document.getElementById("teamAlphaName").innerHTML = teamAName;
+  document.getElementById("teamBetaName").innerHTML = teamBName;
+
+  settings.teamA = teamAName;
+  settings.teamB = teamBName;
+
+  settings.teamSelected = localStorage.getItem("teamAName");
   // Process and store the demo ticks
   enableLoader(loader, loaderText, "Processing Demo...");
   const res = await fetch("http://localhost:3000/api/demo/process");

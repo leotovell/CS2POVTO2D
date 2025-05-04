@@ -162,6 +162,15 @@
 
       <!-- TOGGLE BUTTONS INSERTED HERE -->
       <div class="px-3 pt-2">
+        <select id="teamSelectForFilter" class="form-select" aria-label="Team Selection For Filter">
+          <option id="teamAOption" value="teamA" selected>Team A</option>
+          <!-- Team that started CT side-->
+          <option id="teamBOption" value="teamB">Team B</option>
+          <!-- Team that started T side -->
+        </select>
+      </div>
+
+      <div class="px-3 pt-2">
         <div class="btn-group w-100" role="group" aria-label="Team Toggle">
           <button type="button" class="btn btn-light btn-toggle btn-toggle-ct selected" id="btn-ct">
             <img src="./img/logo/ct.png" alt="CT Side" />
@@ -189,17 +198,17 @@
             <span class="status-icon">✔</span>
           </label>
 
-          <!-- Time Ran Out -->
-          <input type="checkbox" class="btn-check" id="btn-time_ran_out" autocomplete="off" checked />
-          <label class="btn" for="btn-time_ran_out">
-            <img src="./img/logo/time_ran_out.svg" alt="Time Ran Out" />
-            <span class="status-icon">✔</span>
-          </label>
-
           <!-- Killed -->
           <input type="checkbox" class="btn-check" id="btn-killed" autocomplete="off" checked />
           <label class="btn" for="btn-killed">
             <img src="./img/logo/killed.svg" alt="Killed" />
+            <span class="status-icon">✔</span>
+          </label>
+
+          <!-- Time Ran Out -->
+          <input type="checkbox" class="btn-check" id="btn-time_ran_out" autocomplete="off" checked />
+          <label class="btn" for="btn-time_ran_out">
+            <img src="./img/logo/time_ran_out.svg" alt="Time Ran Out" />
             <span class="status-icon">✔</span>
           </label>
         </div>
@@ -208,8 +217,8 @@
       <div class="px-3 pt-2">
         <label class="form-label mb-1 fw-bold small">Include OT?</label>
         <div class="btn-group w-100 btn-group-sm" role="group" aria-label="Include OT Toggle">
-          <button type="button" class="btn btn-outline-secondary btn-ot selected" id="ot-no">No</button>
-          <button type="button" class="btn btn-outline-secondary btn-ot" id="ot-yes">Yes</button>
+          <button type="button" class="btn btn-outline-secondary btn-ot" id="ot-no">No</button>
+          <button type="button" class="btn btn-outline-secondary btn-ot selected" id="ot-yes">Yes</button>
           <button type="button" class="btn btn-outline-secondary btn-ot" id="ot-only">Only</button>
         </div>
       </div>
