@@ -4,7 +4,7 @@ import { processBasicTicks, debugTime } from "./js/backend.js";
 
 if (workerData.task === "ticks") {
   console.log("Ticks - Started");
-  const result = processBasicTicks(workerData.buffer);
+  const result = processBasicTicks(workerData.buffer, workerData.demoRoundEvents);
   parentPort.postMessage(result);
 } else if (workerData.task === "grenades") {
   console.log("Nades - Started");

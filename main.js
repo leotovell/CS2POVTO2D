@@ -3,7 +3,7 @@ import * as nodePath from "node:path";
 import { readFileSync, writeFile } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
-import { debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
+import { cleanDemoData, debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
 import { Worker } from "worker_threads";
 import express from "express";
 import { Readable } from "node:stream";
@@ -17,16 +17,16 @@ let isPreprocessed = false;
 
 // global vars for demo data
 
+let demoIsFaceit = true;
 let demoHeader;
 let demoScoreboard;
-let demoTicks;
-let demoEvents;
+let demoRounds;
 let demoMapData;
 
-function runWorker(task, buffer) {
+function runWorker(task, buffer, demoRoundEvents) {
   return new Promise((resolve, reject) => {
     const worker = new Worker("./parseWorker.js", {
-      workerData: { task, buffer },
+      workerData: { task, buffer, demoRoundEvents },
     });
 
     worker.on("message", resolve);
@@ -42,7 +42,6 @@ const api = express();
 api.use(bodyParser.json({ limit: "500mb" }));
 
 api.get("/api/demo/process", async (req, res) => {
-  console.log("here");
   res.setHeader("Content-Type", "application/json");
 
   let returnObj;
@@ -51,23 +50,42 @@ api.get("/api/demo/process", async (req, res) => {
     const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
     let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
     let thisMapData = mapData[currentMap];
-    const { round_start_events, round_freeze_end_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end"]);
+    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, is_bomb_planted_events, is_bomb_dropped_events } = processEvents(demoFileBuffer, [
+      "round_start",
+      "round_freeze_end",
+      "round_end",
+      "round_officially_ended",
+      "is_bomb_dropped",
+      "is_bomb_planted",
+    ]);
 
-    let [processedTicks, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer), runWorker("grenades", demoFileBuffer)]);
+    console.log(is_bomb_dropped_events);
+    console.log(is_bomb_planted_events);
 
-    // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
-    demoTicks = processGrenades(grenades, processedTicks);
-    demoEvents = {
-      roundStarts: round_start_events,
-      freezeEnds: round_freeze_end_events,
+    const demoRoundEvents = {
+      round_start_events,
+      round_freeze_end_events,
+      round_end_events,
+      round_officially_ended_events,
+      is_bomb_dropped_events,
+      is_bomb_planted_events,
     };
+
+    // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
+
+    if (demoIsFaceit) {
+      // After rounds are processed remove the non-knife and non-regulation/OT rounds.
+    }
+
+    let [rounds, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer, demoRoundEvents), runWorker("grenades", demoFileBuffer)]);
+    // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
+    rounds = processGrenades(grenades, rounds);
+
     demoMapData = thisMapData;
+    demoRounds = rounds;
 
     returnObj = {
-      ticks: demoTicks,
-      // nades: grenades,
-      roundStarts: round_start_events,
-      freezeEnds: round_freeze_end_events,
+      rounds: demoRounds,
       mapData: thisMapData,
       scoreboard: demoScoreboard,
     };
@@ -77,9 +95,7 @@ api.get("/api/demo/process", async (req, res) => {
     // return returnObj;
   } else if (demoFilePath.endsWith(".json")) {
     returnObj = {
-      ticks: demoTicks,
-      roundStarts: demoEvents.roundStarts,
-      freezeEnds: demoEvents.freezeEnds,
+      rounds: demoRounds,
       mapData: demoMapData,
       scoreboard: demoScoreboard,
     };
@@ -114,7 +130,7 @@ app.whenReady().then(() => {
       filters: [
         {
           name: "Demo File",
-          extensions: ["dem"],
+          extensions: ["dem", "json"],
         },
         { name: "Pre-processed Demos", extensions: ["json"] },
       ],
@@ -123,10 +139,11 @@ app.whenReady().then(() => {
     return result.filePaths;
   });
 
-  ipcMain.handle("demo:preview", async (_, demoPath) => {
+  ipcMain.handle("demo:preview", async (_, demoPath, isFaceit) => {
     console.log("Previewing demo:", demoPath);
 
     demoFilePath = demoPath;
+    demoIsFaceit = isFaceit;
 
     // Identify if its a .dem or .json
     if (demoPath.endsWith(".dem")) {
@@ -166,9 +183,10 @@ app.whenReady().then(() => {
         const importedDemo = JSON.parse(data);
         demoHeader = importedDemo.header;
         demoScoreboard = importedDemo.scoreboard;
-        demoTicks = importedDemo.ticks;
-        demoEvents = importedDemo.events;
+        // demoTicks = importedDemo.ticks;
+        // demoEvents = importedDemo.events;
         demoMapData = importedDemo.mapdata;
+        demoRounds = importedDemo.rounds;
       } catch (err) {
         console.error("Error reading/parsing .json:", err);
       }
@@ -181,7 +199,8 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("demo:saveProcessedDemo", async () => {
-    let fileName = demoFilePath.split("\\").slice(-1)[0];
+    // Platform specific
+    let fileName = nodePath.basename(demoFilePath);
     let fileNameWithoutExt = fileName.endsWith(".dem") ? fileName.slice(0, -4) : fileName;
     let processedDemoFilePath = nodePath.join("saved", fileNameWithoutExt + ".json");
     console.log("Saving demo here:", processedDemoFilePath);
@@ -189,20 +208,21 @@ app.whenReady().then(() => {
     let processedDemo = {
       header: demoHeader,
       scoreboard: demoScoreboard,
-      ticks: demoTicks,
-      events: demoEvents,
+      rounds: demoRounds,
       mapdata: demoMapData,
     };
 
-    writeFile(processedDemoFilePath, JSON.stringify(processedDemo), "utf-8", (err) => {
-      if (err) {
-        console.error("Error writing:", processedDemoFilePath);
-        console.error(err);
-        return false;
-      } else {
-        console.log("Successfully wrote:", processedDemoFilePath);
-        return true;
-      }
+    return new Promise((resolve) => {
+      writeFile(processedDemoFilePath, JSON.stringify(processedDemo), "utf-8", (err) => {
+        if (err) {
+          console.error("Error writing:", processedDemoFilePath);
+          console.error(err);
+          resolve(false);
+        } else {
+          console.log("Successfully wrote:", processedDemoFilePath);
+          resolve(true);
+        }
+      });
     });
   });
 

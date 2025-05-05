@@ -8,8 +8,13 @@ const roundTimeSecs = document.getElementById("roundTimeSeconds");
 const backgroundDiv = document.getElementById("scrubBarBackground");
 const currentTickSpan = document.getElementById("currentTickSpan");
 const scrubBar = document.getElementById("scrubBar");
+const roundSelect = document.getElementById("roundSelect");
+const teamAlphaNameSpan = document.getElementById("teamAlphaName");
+const teamAlphaScoreSpan = document.getElementById("teamAlphaScore");
+const teamBetaNameSpan = document.getElementById("teamBetaName");
+const teamBetaScoreSpan = document.getElementById("teamBetaScore");
 
-import { settings, tickStore } from "../renderer.js";
+import { settings, tickStore, CTColor, TColor, TBombColor } from "../renderer.js";
 
 let canvas;
 let ctx;
@@ -26,6 +31,60 @@ export function loadMapVars(mapdata) {
 
 const playerDirectionLineLength = 10;
 
+export function constructTickMap(rounds) {
+  let virtualTick = 0;
+  const tickMap = {};
+
+  rounds.forEach((round, round_index) => {
+    for (let actualTick = round.startTick; actualTick <= round.officiallyEndedTick; actualTick++) {
+      tickMap[virtualTick] = { round_index, actualTick };
+      virtualTick++;
+    }
+  });
+
+  tickStore.tickMap = tickMap;
+
+  // Whilst we are at it, let's grab the max virtual tick possible.
+  tickStore.maxTick = Object.keys(tickMap).length;
+}
+
+export function getTickData(tick) {
+  const map = tickStore.tickMap[tick];
+  if (!map) return null;
+
+  const round = tickStore.rounds[map.round_index];
+  return round.ticks[map.actualTick] || null;
+}
+
+export function getRoundInfo(tick) {
+  const map = tickStore.tickMap[tick];
+  if (!map) return null;
+
+  const round = tickStore.rounds[map.round_index];
+  return round;
+}
+
+export function getVirtualTickFromDemoTick(demoTick) {
+  const tickPairs = Object.entries(tickStore.tickMap)
+    .map(([virtual, actual]) => [virtual, actual.actualTick])
+    .sort((a, b) => a[1] - b[1]);
+
+  // Find the closest virtual tick (less than or equal to demoTick)
+  let closest = undefined;
+  for (const [virtual, actual] of tickPairs) {
+    if (actual <= demoTick) {
+      closest = virtual;
+    } else {
+      break;
+    }
+  }
+
+  return closest;
+}
+
+const teamAName = localStorage.getItem("teamAName");
+const teamBName = localStorage.getItem("teamBName");
+
 /**
  * @description Updates the `Round Timer`, `Current Round` UI elements.
  * @author Leo Tovell
@@ -33,52 +92,87 @@ const playerDirectionLineLength = 10;
  * @exports
  * @param {Number} currentTick
  */
-export function updateRoundInfo(currentTick, roundStarts, freezeEnds) {
-  // find latest round start
-  let lastRoundStart = -Infinity;
-  for (const num of roundStarts) {
-    if (num <= currentTick && num > lastRoundStart) {
-      lastRoundStart = num;
-    }
-  }
+export function updateRoundInfo() {
+  let round = tickStore.currentRound;
 
-  let lastFreezeEnds = -Infinity;
-  for (const num of freezeEnds) {
-    if (num <= currentTick && num > lastFreezeEnds) {
-      lastFreezeEnds = num;
-    }
-  }
-  // Conditional: if lastRoundStart > lastFreezeEnds then pause the timer at 1:55s (we are in a freeze time or a timeout)
-  if (lastRoundStart > lastFreezeEnds) {
-    roundTimeMins.innerHTML = "1";
-    roundTimeSecs.innerHTML = "55";
-  } else {
-    // work out round tick
-    let roundTick = currentTick - lastFreezeEnds;
+  roundSelect.value = round.roundNumber;
 
-    // Divide to get the current seconds elapsed
+  let roundTimeM = "1";
+  let roundTimeS = "55";
+
+  if (tickStore.currentDemoTick < round.freezeEndTick) {
+    let lengthOfPreround = round.freezeEndTick - round.startTick;
+    let ticksIntoPreround = tickStore.currentDemoTick - round.startTick;
+    let timeRemaining = (lengthOfPreround - ticksIntoPreround) / 64;
+    roundTimeM = Math.floor(timeRemaining / 60);
+    roundTimeS = String(Math.floor(timeRemaining % 60)).padStart(2, "0");
+  } else if (tickStore.currentDemoTick < round.endTick) {
+    // What tick are we at into the round?
+    let roundTick = tickStore.currentDemoTick - round.freezeEndTick;
     let secondsElapsedInRound = roundTick / 64;
-
-    // Minus from total round allowance (default = 115s (1m55s))
     let roundTimeRemaining = 115 - secondsElapsedInRound;
+    roundTimeM = Math.floor(roundTimeRemaining / 60);
+    roundTimeS = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
+  } else if (tickStore.currentDemoTick > round.endTick) {
+    let lengthOfRoundEnd = round.officiallyEndedTick - round.endTick;
+    let ticksIntoRoundEnd = tickStore.currentDemoTick - round.endTick;
+    let timeRemaining = (lengthOfRoundEnd - ticksIntoRoundEnd) / 64;
+    roundTimeM = Math.floor(timeRemaining / 60);
+    roundTimeS = String(Math.floor(timeRemaining % 60)).padStart(2, "0");
+  }
 
-    // Work out minutes + seconds and change HTML values;
-    roundTimeMins.innerHTML = Math.floor(roundTimeRemaining / 60);
-    roundTimeSecs.innerHTML = String(Math.floor(roundTimeRemaining % 60)).padStart(2, "0");
+  roundTimeMins.innerHTML = roundTimeM;
+  roundTimeSecs.innerHTML = roundTimeS;
+
+  // Now update the team scores
+
+  const isPreEnd = tickStore.currentDemoTick < round.endTick;
+  const teamAlphaScore = isPreEnd ? round.beforeScoreA : round.afterScoreA;
+  const teamBetaScore = isPreEnd ? round.beforeScoreB : round.afterScoreB;
+
+  // Calculate side for team A
+  let aSide;
+  if (round.roundNumber <= 12) {
+    aSide = "ct";
+  } else if (round.roundNumber <= 24) {
+    aSide = "t";
+  } else {
+    const otRound = round.roundNumber - 25;
+    const otHalf = Math.floor(otRound / 3);
+    const isFirstHalf = otRound % 6 < 3;
+
+    if ((otHalf % 2 === 0 && isFirstHalf) || (otHalf % 2 === 1 && !isFirstHalf)) {
+      aSide = "t";
+    } else {
+      aSide = "ct";
+    }
+  }
+
+  // Set scores
+  teamAlphaScoreSpan.innerHTML = teamAlphaScore;
+  teamBetaScoreSpan.innerHTML = teamBetaScore;
+
+  // Apply inline color styling
+  if (aSide === "ct") {
+    teamAlphaScoreSpan.style.color = "#4ea5f7"; // CT blue
+    teamBetaScoreSpan.style.color = "#f79b4e"; // T orange
+  } else {
+    teamAlphaScoreSpan.style.color = "#f79b4e"; // T orange
+    teamBetaScoreSpan.style.color = "#4ea5f7"; // CT blue
   }
 }
 
 // NEEDS FIXING
-export function renderRoundSegments(tickList, totalTicks) {
+export function renderRoundSegments(rounds) {
   const barWidth = scrubBar.offsetWidth;
   backgroundDiv.innerHTML = ""; // Clear previous
 
-  for (let i = 0; i < tickList.length - 1; i++) {
-    const startTick = tickList[i];
-    const endTick = tickList[i + 1];
+  rounds.forEach((round) => {
+    const startTick = round.startTick;
+    const endTick = round.endTick;
 
-    const startPercent = startTick / totalTicks;
-    const endPercent = endTick / totalTicks;
+    const startPercent = startTick / tickStore.maxTick;
+    const endPercent = endTick / tickStore.maxTick;
     const segmentWidth = (endPercent - startPercent) * barWidth;
 
     const segment = document.createElement("div");
@@ -86,9 +180,9 @@ export function renderRoundSegments(tickList, totalTicks) {
     segment.style.left = `${startPercent * 100}%`;
     segment.style.width = `${segmentWidth}%`;
     segment.style.height = "100%";
-    segment.style.background = i % 2 === 0 ? "#f0f0f0" : "#e0e0e0";
+    segment.style.background = round.roundNumber % 2 === 0 ? "#f0f0f0" : "#e0e0e0";
     backgroundDiv.appendChild(segment);
-  }
+  });
 }
 
 /**
@@ -118,7 +212,9 @@ export function drawPlayer(player) {
   ctx.fillStyle = "white";
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
-  ctx.fillText(player.name, x, y - 10);
+  if (player.alive === true) {
+    ctx.fillText(player.name, x, y - 10);
+  }
 
   // Player direction line
   let yawAsDegrees = -player.yaw * (Math.PI / 180);
@@ -133,19 +229,34 @@ export function drawPlayer(player) {
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(finishX, finishY);
-    ctx.strokeStyle = player.team_num == 2 ? "orange" : "blue";
+    ctx.strokeStyle = player.team_num == 2 ? TColor : CTColor;
     ctx.lineWidth = 2;
     ctx.stroke();
   }
 
   // Player Circle
+  const radius = 5;
   ctx.beginPath();
-  ctx.arc(x, y, 5, 0, 2 * Math.PI);
-  ctx.fillStyle = player.team_num == 2 ? "orange" : "blue";
-  if (player.alive == false) {
-    ctx.fillStyle = "gray";
+  ctx.fillStyle = player.team_num == 2 ? TColor : CTColor;
+  if (player.has_c4) ctx.fillStyle = TBombColor;
+
+  if (player.alive === false) {
+    // Draw a cross instead of a circle
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x - radius, y - radius);
+    ctx.lineTo(x + radius, y + radius);
+    ctx.moveTo(x + radius, y - radius);
+    ctx.lineTo(x - radius, y + radius);
+    ctx.stroke();
+  } else {
+    // Draw a filled circle
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fill();
   }
-  ctx.fill();
 }
 
 export function drawGrenade(grenade) {
@@ -157,48 +268,102 @@ export function drawGrenade(grenade) {
   ctx.fill();
 }
 
-export function seekToDemoTime(scrubbedTick, tickKeys) {
-  let newIndex = tickKeys.indexOf(scrubbedTick);
-  if (newIndex === -1) {
-    // fallback to closest tick
-    newIndex = tickKeys.findIndex((tick) => tick >= scrubbedTick);
-    if (newIndex === -1) newIndex = tickKeys.length - 1;
+export function seekToDemoTime(scrubbedTick) {
+  if (settings.multiRoundOverlayMode) {
+    tickStore.multiRoundMasterTick = scrubbedTick;
+  } else {
+    tickStore.currentTick = scrubbedTick;
   }
-  tickStore.currentTick = newIndex;
 }
 
-export function goToRound(roundNumber, roundStarts) {
-  // Round ticks are stored in the variable (roundStarts) - can identify knife rounds later.
-  tickStore.currentTick = roundStarts[roundNumber];
+export function goToRound(roundNumber) {
+  // 1. Find the real tick that the round starts at
+  const round = tickStore.rounds.find((round) => round.roundNumber === roundNumber);
+  const roundStartTick = Object.keys(round.ticks)[0];
+  if (roundStartTick === undefined) return console.warn(`Round ${roundNumber} not found`);
+
+  console.log("Found round, start tick:", roundStartTick);
+
+  // 2. Inverse search tickMap: find the virtual tick that maps to this actual tick
+  const virtualTick = getVirtualTickFromDemoTick(roundStartTick);
+
+  console.log("Demo to Virtual Tick:", virtualTick);
+
+  if (virtualTick === undefined) return console.warn(`No virtual tick found for tick ${roundStartTick}`);
+
+  // 3. Set the virtual tick (convert from string to number if needed)
+  tickStore.currentTick = virtualTick;
+  tickStore.currentRound = round;
 }
 
-export function drawTick(tickKey, tick, lastTick, roundStarts, freezeEnds, mapImage) {
-  updateRoundInfo(tickKey, roundStarts, freezeEnds);
+export function drawTick(tick, mapImage) {
+  updateRoundInfo();
 
-  currentTickSpan.innerHTML = tickKey + " of " + lastTick;
+  currentTickSpan.innerHTML = tickStore.currentTick + " of " + tickStore.maxTick;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
 
-  // If tick exists, draw it's contents.
-  if (tick) {
-    if (tick.players) {
-      for (const player of tick.players) {
-        if (!settings.hiddenPlayers.has(player.name)) {
-          drawPlayer(player);
+  // NORMAL MODE - ROUND BY ROUND
+  if (!settings.multiRoundOverlayMode) {
+    // If tick exists, draw it's contents.
+    if (tick) {
+      if (tick.players) {
+        for (const player of tick.players) {
+          if (!settings.hiddenPlayers.has(player.name)) {
+            drawPlayer(player);
+          }
+        }
+      }
+
+      if (tick.grenades) {
+        for (const nade of tick.grenades) {
+          if (!settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
+            drawGrenade(nade);
+          }
         }
       }
     }
 
-    if (tick.grenades) {
-      for (const nade of tick.grenades) {
-        if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
-          drawGrenade(nade);
+    scrubBar.max = tickStore.maxTick;
+    scrubBar.value = tickStore.currentTick;
+  } else {
+    // MULTIROUND MODE - OVERLAYED ALL ROUNDS SPECIFIED
+
+    // longest round tick
+    let longestRoundTicks = 0;
+
+    // Get the longest round tick
+    for (const round of tickStore.rounds) {
+      const diff = round.officiallyEndedTick - round.startTick;
+      if (diff > longestRoundTicks) longestRoundTicks = diff;
+    }
+    tickStore.multiRoundSelection.forEach((round) => {
+      // What's the current tick?
+      const roundTick = tickStore.multiRoundMasterTick + round.freezeEndTick;
+      if (roundTick < round.officiallyEndedTick) {
+        tick = round.ticks[roundTick];
+        if (tick) {
+          if (tick.players) {
+            for (const player of tick.players) {
+              if (!settings.hiddenPlayers.has(player.name)) {
+                drawPlayer(player);
+              }
+            }
+          }
+          if (tick.grenades) {
+            for (const nade of tick.grenades) {
+              if (settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
+                drawGrenade(nade);
+              }
+            }
+          }
         }
       }
-    }
+    });
+
+    // Finally update the scrub-bar, and incrememnt the master tick
+    scrubBar.max = longestRoundTicks;
+    scrubBar.value = tickStore.multiRoundMasterTick;
   }
-
-  scrubBar.max = lastTick;
-  scrubBar.value = tickKey;
 }

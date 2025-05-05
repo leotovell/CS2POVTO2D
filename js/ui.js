@@ -1,6 +1,7 @@
 // write the UI updating stuff here (NOT THE CANVAS UPDATES);
 
-import { settings, settingsToConfigure } from "../renderer.js";
+import { settings, settingsToConfigure, tickStore } from "../renderer.js";
+// import bombSVG from "../img/logo/bomb.svg";
 
 // export as required
 
@@ -53,6 +54,335 @@ export function disableElement(element) {
 
 export function enableElement(element) {
   element.disabled = false;
+}
+
+function updateMultiRoundsList(element) {
+  console.log(settings);
+  const roundNumToEl = {};
+
+  tickStore.multiRoundSelection.clear();
+  for (const round of element.children) {
+    const roundNum = round.firstChild.id.replace("round_", "");
+    round.firstChild.checked = false;
+    roundNumToEl[roundNum] = round.firstChild;
+  }
+
+  const sideSet = new Set();
+  const allRoundsInlcudingOTSet = new Set();
+  const winConditionSet = new Set();
+
+  for (const round of tickStore.rounds) {
+    const rn = round.roundNumber;
+
+    console.log(round.winReason);
+
+    let selectedTeamIsCT = false;
+
+    if (settings.teamSelected === settings.teamA) {
+      // Team A: CT in rounds 1–12 and selected OT halves
+      if (rn <= 12) {
+        selectedTeamIsCT = true;
+      } else if (rn > 24) {
+        const otRound = rn - 25;
+        const otHalf = Math.floor(otRound / 6);
+        const roundInHalf = otRound % 6;
+        const isFirstHalf = roundInHalf < 3;
+
+        selectedTeamIsCT = (otHalf % 2 === 0 && isFirstHalf) || (otHalf % 2 === 1 && !isFirstHalf);
+      }
+    } else {
+      // Team B: CT in rounds 13–24 and inverse OT halves
+      if (rn > 12 && rn <= 24) {
+        selectedTeamIsCT = true;
+      } else if (rn > 24) {
+        const otRound = rn - 25;
+        const otHalf = Math.floor(otRound / 6);
+        const roundInHalf = otRound % 6;
+        const isFirstHalf = roundInHalf < 3;
+
+        selectedTeamIsCT = (otHalf % 2 === 0 && !isFirstHalf) || (otHalf % 2 === 1 && isFirstHalf);
+      }
+    }
+
+    // Now filter by sideSelected ("CT" or "T")
+    const wantsCT = settings.sideSelected === "CT";
+    if (selectedTeamIsCT === wantsCT) {
+      sideSet.add(round);
+    }
+
+    // OT selection
+    if (settings.OTSelection === -1) {
+      // Only regulation.
+      if (round.roundNumber < 25) {
+        allRoundsInlcudingOTSet.add(round);
+      }
+    } else if (settings.OTSelection === 0) {
+      allRoundsInlcudingOTSet.add(round);
+    } else if (settings.OTSelection === 1) {
+      if (round.roundNumber > 24) {
+        allRoundsInlcudingOTSet.add(round);
+      }
+    }
+
+    // Win conditions
+    if (settings.winConditions.has(round.winReason)) {
+      winConditionSet.add(round);
+    }
+  }
+
+  // Build the intersection of all the sets to get the rounds to show.
+
+  console.log(sideSet);
+  console.log(allRoundsInlcudingOTSet);
+  console.log(winConditionSet);
+
+  const finalRounds = new Set([...sideSet].filter((item) => allRoundsInlcudingOTSet.has(item) && winConditionSet.has(item)));
+
+  for (const round of finalRounds) {
+    const el = roundNumToEl[round.roundNumber];
+    if (el) {
+      el.checked = true;
+      tickStore.multiRoundSelection.add(round);
+    }
+  }
+
+  // Now also disable/enable all of the filters neccessary.
+}
+
+export function setupMultiRoundsPanel(element, rounds) {
+  // Add a presets tab - CT/T Side to show each team on one side only.
+  // Include Overtimes (if exists) three-way-toggle. No-Yes-ONLY
+  // If ONLY OT we also get a selection of OT's to choose (also hide reguation rounds.)
+
+  const teamAOption = document.getElementById("teamAOption");
+  const teamBOption = document.getElementById("teamBOption");
+
+  teamAOption.value = settings.teamA;
+  teamBOption.value = settings.teamB;
+  teamAOption.innerHTML = settings.teamA;
+  teamBOption.innerHTML = settings.teamB;
+  // Set up team selection listeners
+  document.getElementById("teamSelectForFilter").addEventListener("click", (ev) => {
+    settings.teamSelected = ev.target.selectedOptions[0].value;
+    updateMultiRoundsList(element);
+  });
+
+  // Setup the toggle listeners:
+  const ctBtn = document.getElementById("btn-ct");
+  const tBtn = document.getElementById("btn-t");
+
+  ctBtn.addEventListener("click", () => {
+    // CT SIDE SELECT
+    ctBtn.classList.add("selected");
+    tBtn.classList.remove("selected");
+    settings.sideSelected = "CT";
+    updateMultiRoundsList(element);
+
+    // Also, unselect all rounds, and just select the rounds where team A is on ct side (first half + check with OT);
+  });
+
+  tBtn.addEventListener("click", () => {
+    // T SIDE SELECT
+    tBtn.classList.add("selected");
+    ctBtn.classList.remove("selected");
+    settings.sideSelected = "T";
+    updateMultiRoundsList(element);
+  });
+
+  // OT Buttons
+  const otButtons = document.querySelectorAll(".btn-ot");
+  otButtons.forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      otButtons.forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      switch (ev.target.innerHTML) {
+        case "No":
+          settings.OTSelection = -1;
+          break;
+        case "Yes":
+          settings.OTSelection = 0;
+          break;
+        case "Only":
+          settings.OTSelection = 1;
+      }
+      updateMultiRoundsList(element);
+    });
+  });
+
+  // Hide if OT is not in the game.
+  if (tickStore.rounds.length < 25) {
+    document.getElementById("ot-btn-cont").style.display = "none";
+  }
+
+  // Win Conditions
+  document.getElementById("btn-bomb_exploded").addEventListener("click", (ev) => {
+    if (ev.target.checked) {
+      settings.winConditions.add("bomb_exploded");
+    } else {
+      settings.winConditions.delete("bomb_exploded");
+    }
+    // Update multi-round list + re-draw.
+    updateMultiRoundsList(element);
+  });
+
+  document.getElementById("btn-bomb_defused").addEventListener("click", (ev) => {
+    if (ev.target.checked) {
+      settings.winConditions.add("bomb_defused");
+    } else {
+      settings.winConditions.delete("bomb_defused");
+    }
+    // Update multi-round list + re-draw.
+    updateMultiRoundsList(element);
+  });
+
+  document.getElementById("btn-killed").addEventListener("click", (ev) => {
+    if (ev.target.checked) {
+      settings.winConditions.add("t_killed");
+      settings.winConditions.add("ct_killed");
+    } else {
+      settings.winConditions.delete("t_killed");
+      settings.winConditions.delete("ct_killed");
+    }
+    // Update multi-round list + re-draw.
+    updateMultiRoundsList(element);
+  });
+
+  document.getElementById("btn-time_ran_out").addEventListener("click", (ev) => {
+    if (ev.target.checked) {
+      settings.winConditions.add("time_ran_out");
+    } else {
+      settings.winConditions.delete("time_ran_out");
+    }
+    // Update multi-round list + re-draw.
+    updateMultiRoundsList(element);
+  });
+
+  // presetsCont = document.createElement;
+  rounds.forEach((round) => {
+    // Add custom attributes which denote:
+    // Half: 1 or 2?
+    // OT: -1 or 1,2,3,4... etc?
+    // If yes: What half of ot?
+    // Can then combine OT 1 + half 1 means CT side is a
+    // Let's say OT 1 side 2 is CT side is b etc.
+
+    const roundListItem = document.createElement("li");
+    roundListItem.className = "list-group-item d-flex align-items-center";
+    roundListItem.style.color = round.winner == "T" ? "orange" : "blue";
+
+    const roundCheckbox = document.createElement("input");
+    roundCheckbox.type = "checkbox";
+    roundCheckbox.className = "form-check-input me-2";
+    roundCheckbox.id = "round_" + round.roundNumber;
+    roundCheckbox.checked = true;
+
+    const winReasonSVG = document.createElement("svg");
+
+    switch (round.winReason) {
+      case "bomb_defused":
+        fetch("./img/logo/bomb_defused.svg")
+          .then((res) => res.text())
+          .then((data) => {
+            winReasonSVG.innerHTML = data;
+
+            const svgElement = winReasonSVG.querySelector("svg");
+
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            svgElement.style.width = "30px";
+            svgElement.style.height = "30px";
+
+            svgElement.removeAttribute("fill");
+            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+          });
+        break;
+      case "bomb_exploded":
+        fetch("./img/logo/bomb.svg")
+          .then((res) => res.text())
+          .then((data) => {
+            winReasonSVG.innerHTML = data;
+
+            const svgElement = winReasonSVG.querySelector("svg");
+
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            svgElement.style.width = "30px";
+            svgElement.style.height = "30px";
+
+            svgElement.removeAttribute("fill");
+            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+          });
+        break;
+      case "t_killed":
+      case "ct_killed":
+        fetch("./img/logo/killed.svg")
+          .then((res) => res.text())
+          .then((data) => {
+            winReasonSVG.innerHTML = data;
+
+            const svgElement = winReasonSVG.querySelector("svg");
+
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            svgElement.style.width = "30px";
+            svgElement.style.height = "30px";
+
+            svgElement.removeAttribute("fill");
+            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+          });
+        break;
+      case "time_ran_out":
+        fetch("./img/logo/time_ran_out.svg")
+          .then((res) => res.text())
+          .then((data) => {
+            winReasonSVG.innerHTML = data;
+
+            const svgElement = winReasonSVG.querySelector("svg");
+
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            svgElement.style.width = "30px";
+            svgElement.style.height = "30px";
+
+            svgElement.removeAttribute("fill");
+            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+          });
+        break;
+      default:
+        break;
+    }
+
+    // Add event listener
+    roundCheckbox.addEventListener("change", () => {
+      if (roundCheckbox.checked) {
+        // Add it to the multiround set.
+        tickStore.multiRoundSelection.add(round);
+      } else {
+        tickStore.multiRoundSelection.delete(round);
+      }
+    });
+
+    // By default, let's add every round to the tickStore as all the tickboxes start checked anyway.
+    tickStore.multiRoundSelection.add(round);
+
+    const labelWrapper = document.createElement("div");
+    labelWrapper.className = "d-flex align-items-center justify-content-between w-100";
+
+    const roundLabel = document.createElement("label");
+    roundLabel.className = "form-check-label mb-0";
+    roundLabel.setAttribute("for", "round_" + round.roundNumber);
+    roundLabel.textContent = "Round " + round.roundNumber;
+
+    winReasonSVG.classList.add("ms-2"); // optional small left margin
+
+    labelWrapper.append(roundLabel);
+    labelWrapper.append(winReasonSVG);
+
+    roundListItem.append(roundCheckbox);
+    roundListItem.append(labelWrapper);
+
+    element.append(roundListItem);
+  });
 }
 
 export function setupPlayerFiltersModal(modal, scoreboard) {
@@ -157,7 +487,6 @@ function addPlayerVisibilityFilter(element, player, teamMates, teamCheckbox) {
 
 export function setupSettingsListeners() {
   settingsToConfigure.forEach((setting) => {
-    console.log("setting_" + setting.name);
     const element = document.getElementById("setting_" + setting.name);
     if (setting.type == "checkbox") {
       // Set to default
@@ -166,6 +495,14 @@ export function setupSettingsListeners() {
       // Add listener
       element.addEventListener("change", () => {
         settings[setting.name] = element.checked;
+        console.log(settings);
+      });
+    } else if ((setting.type = "select")) {
+      // set to default
+      element.value = setting.defaultValue;
+
+      element.addEventListener("change", () => {
+        settings[setting.name] = element.value;
         console.log(settings);
       });
     }

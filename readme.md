@@ -27,14 +27,21 @@ _name = in development_<br>
 | -> Scrubbing          | &check; | &check;  |
 | -> Round Timer        | &cross; | &check;  |
 | -> Skip To Round      | &cross; | &check;  |
-| -> Player Filters     |   Leo   |   Leo    |
-| -> Round Filters      |   Leo   |   Leo    |
+| -> Player Filters     | &cross; | &check;  |
+| -> Round Filters      | &cross; | &check;  |
+
+TODO:
+
+- Add second layer to map for multi-layer maps such as de_nuke
+- Add c4 carrier + c4 planting/defusing.
+- Only show OT filter if game has OT.
+- If filters make no difference to current selection, disable their buttons, i.e. in a game with no bomb_defusals disable that option.
 
 ## Installation
 
 ### Easiest Method (Recommended for Most Users)
 
-1. Head to the **[Latest Release](https://github.com/yourusername/yourrepo/releases)**.
+1. Head to the **[Latest Release](https://github.com/leotovell/CS2POVTO2D/releases)**.
 2. Download and run `demoreview Setup 1.0.0.exe`.
 3. Once installed, you can search **"demoreview"** in your Windows Start menu to launch the app.
 

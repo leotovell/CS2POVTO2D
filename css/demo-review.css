@@ -1,0 +1,180 @@
+.draggable-panel {
+  position: absolute;
+  top: 100px;
+  left: 100px;
+  width: 250px;
+  z-index: 999;
+  background-color: #f8f9fa;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.panel-header {
+  cursor: default;
+  padding: 0.5rem 0.75rem;
+  background-color: #e9ecef;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.drag-handle {
+  cursor: move;
+}
+
+.rounds-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0.75rem;
+  padding-top: 0;
+}
+
+#multiRoundOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  border: 10px solid #007bff; /* thick blue inset border */
+  z-index: 1000;
+  pointer-events: none;
+  visibility: visible; /* toggle this to 'hidden' when needed */
+}
+
+#multiRoundOverlay .top-bar {
+  position: absolute;
+  top: -10px; /* offset for border thickness */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #007bff;
+  padding: 0.25rem 1rem;
+  border-radius: 0 0 0.5rem 0.5rem;
+  color: white;
+  font-weight: bold;
+  pointer-events: auto;
+}
+
+#multiRoundOverlay button {
+  background: none;
+  border: none;
+  color: white;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+#multiRoundOverlay button:hover {
+  text-decoration: underline;
+}
+
+.btn-toggle {
+  width: 100%;
+  height: 54px;
+  border-radius: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.btn-toggle img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.btn-toggle-ct {
+  border-top-left-radius: 30px;
+  border-bottom-left-radius: 30px;
+}
+
+.btn-toggle-t {
+  border-top-right-radius: 30px;
+  border-bottom-right-radius: 30px;
+}
+
+.btn-toggle.selected {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-ot {
+  border-radius: 0;
+  font-size: 0.85rem;
+  padding: 4px 0;
+}
+
+.btn-ot:first-child {
+  border-top-left-radius: 15px;
+  border-bottom-left-radius: 15px;
+}
+
+.btn-ot:last-child {
+  border-top-right-radius: 15px;
+  border-bottom-right-radius: 15px;
+}
+
+.btn-ot.selected {
+  background-color: #6c757d;
+  color: white;
+}
+
+.list-group-item svg {
+  display: block;
+}
+
+.multi-win-select {
+  display: flex;
+}
+
+.multi-win-select .btn-check:checked + .btn {
+  background-color: #d1e7dd;
+  border-color: #198754;
+}
+
+.multi-win-select .btn {
+  padding: 0.5rem;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: unset; /* Set default border-radius */
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.multi-win-select .btn:first-of-type {
+  border-radius: 0.5rem 0 0 0.5rem; /* Remove border-radius from all buttons except the first one */
+}
+
+.multi-win-select .btn:last-of-type {
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.multi-win-select img {
+  width: 36px;
+  height: 36px;
+}
+
+.multi-win-select .status-icon {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.multi-win-select .btn-check + .btn .status-icon {
+  display: none;
+}
+
+.multi-win-select .btn-check:checked + .btn .status-icon {
+  display: inline;
+  color: green;
+  content: "✔";
+}

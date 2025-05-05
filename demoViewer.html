@@ -11,11 +11,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.min.js" integrity="sha384-VQqxDN0EQCkWoxt/0vsQvZswzTHUVOImccYmSyhJTp7kGtPed0Qcx8rK9h9YEgx+" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="css/demo-preview.css" />
+    <link rel="stylesheet" href="css/demo-review.css" />
     <link rel="stylesheet" href="css/common.css" />
     <meta charset="UTF-8" />
     <title>CS2 Demo To 2D | Demo Review</title>
   </head>
   <body id="review-demo">
+    <div id="multiRoundOverlay" style="visibility: hidden">
+      <div class="top-bar">
+        <button id="exit-multi-round-btn" onclick="console.log('Exit multi-round mode clicked')">Exit multi-round mode</button>
+      </div>
+    </div>
     <div class="loader-overlay" id="loader">
       <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem">
         <span class="visually-hidden">Loading...</span>
@@ -51,7 +57,7 @@
       <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#playerFiltersModal">Player Filters</button>
 
       <!-- Modal -->
-      <div class="modal fade" id="playerFiltersModal" data-bs-keyboard="false" tabindex="-1" aria-labelledby="playerFiltersModalLabel" aria-hidden="true">
+      <div class="modal fade" id="playerFiltersModal" data-bs-keyboard="false" tabindex="-1" aria-labelledby="playerFiltersModalLabel">
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
@@ -70,7 +76,7 @@
               </div>
               <div class="container">
                 <input class="form-check-input me-2" type="checkbox" id="setting_showNadesThrownByHiddenPlayers" />
-                <label for="showHiddenNades"
+                <label for="setting_showNadesThrownByHiddenPlayers"
                   >Show Grenades Thrown By Hidden Players
                   <span data-bs-toggle="tooltip" data-bs-placement="right" title="When enabled, grenades thrown by hidden players will also be shown.">
                     <i class="bi bi-question-circle" style="font-size: 1rem"></i>
@@ -92,15 +98,10 @@
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
-              <h1 class="modal-title fs-5" id="settingsModalLabel">
-                Settings
-                <!-- <span data-bs-toggle="tooltip" data-bs-placement="right" title="Players that are ticked will be shown on the map.">
-                  <i class="bi bi-question-circle" style="font-size: 1rem"></i>
-                </span> -->
-              </h1>
+              <h1 class="modal-title fs-5" id="settingsModalLabel">Settings</h1>
             </div>
             <div class="modal-body">
-              <div class="container">
+              <div class="container mb-2">
                 <input class="form-check-input me-2" type="checkbox" id="setting_showShootingTracers" />
                 <label for="setting_showShootingTracers"
                   >Show Shooting Tracers
@@ -108,6 +109,22 @@
                     <i class="bi bi-question-circle" style="font-size: 1rem"></i>
                   </span>
                 </label>
+              </div>
+              <div class="container mb-2">
+                <label for="setting_freezeTimeLength">
+                  Freeze Time Length
+                  <span data-bs-toggle="tooltip" data-bs-placement="right" title="Will only show the selected amount of the freezetime before the round begins.">
+                    <i class="bi bi-question-circle" style="font-size: 1rem"></i>
+                  </span>
+                </label>
+                <select class="form-select me-2" id="setting_freezeTimeLength">
+                  <option value="0" selected>None</option>
+                  <option value="1">1s</option>
+                  <option value="3">3s</option>
+                  <option value="5">5s</option>
+                  <option value="10">10s</option>
+                  <option value="999999">Full</option>
+                </select>
               </div>
             </div>
             <div class="modal-footer">
@@ -117,21 +134,155 @@
         </div>
       </div>
 
-      <div class="mt-4 position-relative" style="height: 30px">
+      <button id="multiRoundOverlayToggleBtn" type="button" class="btn btn-primary">Multi-round mode</button>
+
+      <div class="my-4 position-relative" style="height: 30px">
         <label for="scrubBar" class="form-label">Scrub Time</label>
         <div id="scrubBarBackground" style="position: absolute; top: 22px; left: 0; right: 0; height: 8px; background: transparent; z-index: 0; pointer-events: none"></div>
 
         <input type="range" class="form-range position-relative" id="scrubBar" min="0" max="100" value="0" step="1" style="z-index: 1; background: transparent" />
       </div>
 
+      <div id="scoreContainer" class="d-flex justify-content-between align-items-center">
+        <span id="teamAlphaName" class="me-auto">teamA</span>
+        <span id="teamAlphaScore" class="mx-3 fs-3 fw-bold text-center">0</span>
+        <span class="mx-3 fs-3 fw-bold text-center">:</span>
+        <span id="teamBetaScore" class="mx-3 fs-3 fw-bold text-center">0</span>
+        <span id="teamBetaName" class="ms-auto">teamB</span>
+      </div>
+
       <canvas id="minimap" width="1024" height="1024"></canvas>
     </div>
 
+    <div class="draggable-panel" id="roundsPanel" style="visibility: hidden">
+      <div class="panel-header">
+        <strong>Rounds</strong>
+        <span class="drag-handle" id="dragHandle">⠿</span>
+      </div>
+
+      <!-- TOGGLE BUTTONS INSERTED HERE -->
+      <div class="px-3 pt-2">
+        <select id="teamSelectForFilter" class="form-select" aria-label="Team Selection For Filter">
+          <option id="teamAOption" value="teamA" selected>Team A</option>
+          <!-- Team that started CT side-->
+          <option id="teamBOption" value="teamB">Team B</option>
+          <!-- Team that started T side -->
+        </select>
+      </div>
+
+      <div class="px-3 pt-2">
+        <div class="btn-group w-100" role="group" aria-label="Team Toggle">
+          <button type="button" class="btn btn-light btn-toggle btn-toggle-ct selected" id="btn-ct">
+            <img src="./img/logo/ct.png" alt="CT Side" />
+          </button>
+          <button type="button" class="btn btn-light btn-toggle btn-toggle-t" id="btn-t">
+            <img src="./img/logo/t.png" alt="T Side" />
+          </button>
+        </div>
+      </div>
+
+      <div class="px-3 pt-2">
+        <label class="form-label mb-1 fw-bold small">Win Conditions</label>
+        <div class="multi-win-select" style="padding-right: 10px">
+          <!-- Bomb Exploded -->
+          <input type="checkbox" class="btn-check" id="btn-bomb_exploded" autocomplete="off" checked />
+          <label class="btn" for="btn-bomb_exploded">
+            <img src="./img/logo/bomb.svg" alt="Bomb Exploded" />
+            <span class="status-icon">✔</span>
+          </label>
+
+          <!-- Bomb Defused -->
+          <input type="checkbox" class="btn-check" id="btn-bomb_defused" autocomplete="off" checked />
+          <label class="btn" for="btn-bomb_defused">
+            <img src="./img/logo/bomb_defused.svg" alt="Bomb Defused" />
+            <span class="status-icon">✔</span>
+          </label>
+
+          <!-- Killed -->
+          <input type="checkbox" class="btn-check" id="btn-killed" autocomplete="off" checked />
+          <label class="btn" for="btn-killed">
+            <img src="./img/logo/killed.svg" alt="Killed" />
+            <span class="status-icon">✔</span>
+          </label>
+
+          <!-- Time Ran Out -->
+          <input type="checkbox" class="btn-check" id="btn-time_ran_out" autocomplete="off" checked />
+          <label class="btn" for="btn-time_ran_out">
+            <img src="./img/logo/time_ran_out.svg" alt="Time Ran Out" />
+            <span class="status-icon">✔</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="ot-btn-cont" class="px-3 pt-2">
+        <label class="form-label mb-1 fw-bold small">Include OT?</label>
+        <div class="btn-group w-100 btn-group-sm" role="group" aria-label="Include OT Toggle">
+          <button type="button" class="btn btn-outline-secondary btn-ot" id="ot-no">No</button>
+          <button type="button" class="btn btn-outline-secondary btn-ot selected" id="ot-yes">Yes</button>
+          <button type="button" class="btn btn-outline-secondary btn-ot" id="ot-only">Only</button>
+        </div>
+      </div>
+      <div class="px-3 pt-2">
+        <label class="form-label mb-1 fw-bold small">Rounds</label>
+        <div class="rounds-list">
+          <ul id="multi-rounds-list" class="list-group">
+            <!-- Rounds 1 to 13 -->
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="./renderer.js"></script>
+    <!-- MDB -->
     <script>
       var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
       var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+
+      const panel = document.getElementById("roundsPanel");
+      const handle = document.getElementById("dragHandle");
+      let isDragging = false;
+      let offsetX, offsetY;
+
+      handle.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        const rect = panel.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+
+        const panelWidth = panel.offsetWidth;
+        const panelHeight = panel.offsetHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        let newX = e.clientX - offsetX;
+        let newY = e.clientY - offsetY;
+
+        // Constrain within the viewport
+        newX = Math.max(0, Math.min(windowWidth - panelWidth, newX));
+        newY = Math.max(0, Math.min(windowHeight - panelHeight, newY));
+
+        panel.style.left = `${newX}px`;
+        panel.style.top = `${newY}px`;
+      });
+
+      document.addEventListener("mouseup", () => {
+        isDragging = false;
+      });
+
+      window.addEventListener("resize", () => {
+        // Optional: snap panel inside bounds on window resize
+        const panelRect = panel.getBoundingClientRect();
+        const maxLeft = window.innerWidth - panel.offsetWidth;
+        const maxTop = window.innerHeight - panel.offsetHeight;
+
+        panel.style.left = `${Math.min(panelRect.left, maxLeft)}px`;
+        panel.style.top = `${Math.min(panelRect.top, maxTop)}px`;
       });
     </script>
   </body>
