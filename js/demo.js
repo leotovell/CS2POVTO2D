@@ -14,7 +14,7 @@ const teamAlphaScoreSpan = document.getElementById("teamAlphaScore");
 const teamBetaNameSpan = document.getElementById("teamBetaName");
 const teamBetaScoreSpan = document.getElementById("teamBetaScore");
 
-import { settings, tickStore, CTColor, TColor } from "../renderer.js";
+import { settings, tickStore, CTColor, TColor, TBombColor } from "../renderer.js";
 
 let canvas;
 let ctx;
@@ -238,6 +238,7 @@ export function drawPlayer(player) {
   const radius = 5;
   ctx.beginPath();
   ctx.fillStyle = player.team_num == 2 ? TColor : CTColor;
+  if (player.has_c4) ctx.fillStyle = TBombColor;
 
   if (player.alive === false) {
     // Draw a cross instead of a circle

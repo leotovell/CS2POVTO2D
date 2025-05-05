@@ -73,7 +73,7 @@
 
 .btn-toggle {
   width: 100%;
-  height: 60px;
+  height: 54px;
   border-radius: 0;
   display: flex;
   justify-content: center;
@@ -82,8 +82,8 @@
 }
 
 .btn-toggle img {
-  width: 50px;
-  height: 50px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
 }
 

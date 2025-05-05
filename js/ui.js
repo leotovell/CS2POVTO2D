@@ -145,6 +145,8 @@ function updateMultiRoundsList(element) {
       tickStore.multiRoundSelection.add(round);
     }
   }
+
+  // Now also disable/enable all of the filters neccessary.
 }
 
 export function setupMultiRoundsPanel(element, rounds) {
@@ -206,6 +208,11 @@ export function setupMultiRoundsPanel(element, rounds) {
       updateMultiRoundsList(element);
     });
   });
+
+  // Hide if OT is not in the game.
+  if (tickStore.rounds.length < 25) {
+    document.getElementById("ot-btn-cont").style.display = "none";
+  }
 
   // Win Conditions
   document.getElementById("btn-bomb_exploded").addEventListener("click", (ev) => {

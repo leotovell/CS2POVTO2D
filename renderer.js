@@ -196,6 +196,7 @@ export let settings = {
 };
 
 export const TColor = "#f79b4e";
+export const TBombColor = "#c76f26";
 export const CTColor = "#4ea5f7";
 
 export let settingsToConfigure = [

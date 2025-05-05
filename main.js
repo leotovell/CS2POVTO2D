@@ -17,13 +17,7 @@ let isPreprocessed = false;
 
 // global vars for demo data
 
-// let demoHeader;
-// let demoScoreboard;
-// let demoTicks;
-// let demoEvents;
-// let demoMapData;
 let demoIsFaceit = true;
-
 let demoHeader;
 let demoScoreboard;
 let demoRounds;
@@ -56,13 +50,25 @@ api.get("/api/demo/process", async (req, res) => {
     const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
     let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
     let thisMapData = mapData[currentMap];
-    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = processEvents(demoFileBuffer, ["round_start", "round_freeze_end", "round_end", "round_officially_ended"]);
+    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, is_bomb_planted_events, is_bomb_dropped_events } = processEvents(demoFileBuffer, [
+      "round_start",
+      "round_freeze_end",
+      "round_end",
+      "round_officially_ended",
+      "is_bomb_dropped",
+      "is_bomb_planted",
+    ]);
+
+    console.log(is_bomb_dropped_events);
+    console.log(is_bomb_planted_events);
 
     const demoRoundEvents = {
       round_start_events,
       round_freeze_end_events,
       round_end_events,
       round_officially_ended_events,
+      is_bomb_dropped_events,
+      is_bomb_planted_events,
     };
 
     // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
@@ -83,14 +89,6 @@ api.get("/api/demo/process", async (req, res) => {
       mapData: thisMapData,
       scoreboard: demoScoreboard,
     };
-
-    // returnObj = {
-    //   ticks: demoTicks,
-    //   // nades: grenades,
-    //   events: demoEvents,
-    //   mapData: thisMapData,
-    //   scoreboard: demoScoreboard,
-    // };
 
     console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
 

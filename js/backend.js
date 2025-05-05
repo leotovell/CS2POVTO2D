@@ -30,86 +30,6 @@ export function previewDemo(demoBuffer) {
   };
 }
 
-// export function cleanDemoData(data) {
-//   const {
-//     round_start_events,
-//     round_freeze_end_events,
-//     round_end_events,
-//     round_officially_ended_events,
-//     tick_data, // { [tick]: {...} }
-//   } = data;
-
-//   console.log("running");
-
-//   // Step 1: Keep only last round_start for each round number
-//   let lastRoundStarts = {};
-//   for (let evt of round_start_events) {
-//     lastRoundStarts[evt.round] = evt; // overwrite previous
-//   }
-
-//   const finalRoundStarts = Object.values(lastRoundStarts).sort((a, b) => a.tick - b.tick);
-
-//   // Step 2: Create a map of removed ranges and how many ticks to subtract after each
-//   let removedTicks = [];
-//   let tickOffset = 0;
-//   let adjustedRoundStarts = [];
-//   let i = 0;
-
-//   while (i < round_start_events.length) {
-//     const thisRound = round_start_events[i];
-//     const isLast = lastRoundStarts[thisRound.round] === thisRound;
-
-//     if (isLast) {
-//       thisRound.tick -= tickOffset;
-//       adjustedRoundStarts.push(thisRound);
-//       i++;
-//     } else {
-//       const nextRoundTick = round_start_events[i + 1]?.tick || adjustedRoundStarts.at(-1)?.tick || 0;
-//       const gap = nextRoundTick - thisRound.tick;
-//       removedTicks.push({ start: thisRound.tick, end: nextRoundTick, offset: gap });
-//       tickOffset += gap;
-//       i++;
-//     }
-//   }
-
-//   // Step 3: Adjust ticks in event arrays and tick_data
-//   const adjustTick = (tick) => {
-//     let offset = 0;
-//     for (let { start, end, offset: delta } of removedTicks) {
-//       if (tick >= end) offset += delta;
-//     }
-//     return tick - offset;
-//   };
-
-//   function adjustEventArray(events) {
-//     return events.map((evt) => ({ ...evt, tick: adjustTick(evt.tick) }));
-//   }
-
-//   // Adjust tick-based object keys
-//   const adjustedTickData = {};
-//   for (let tickStr in tick_data) {
-//     const tick = parseInt(tickStr);
-//     const newTick = adjustTick(tick);
-//     adjustedTickData[newTick] = tick_data[tick];
-//   }
-
-//   // Deduplicate round_officially_ended_events by tick
-//   const seenTicks = new Set();
-//   const dedupedRoundOfficiallyEndedEvents = adjustEventArray(round_officially_ended_events).filter((evt) => {
-//     if (seenTicks.has(evt.tick)) return false;
-//     seenTicks.add(evt.tick);
-//     return true;
-//   });
-
-//   return {
-//     round_start_events: adjustedRoundStarts,
-//     round_freeze_end_events: adjustEventArray(round_freeze_end_events),
-//     round_end_events: adjustEventArray(round_end_events),
-//     round_officially_ended_events: dedupedRoundOfficiallyEndedEvents,
-//     tick_data: adjustedTickData,
-//   };
-// }
-
 export function cleanDemoData(data) {
   const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, tick_data } = data;
 
@@ -223,57 +143,8 @@ export function processEvents(demoBuffer, wanted_events) {
   return { ...processedEvents };
 }
 
-/**
- * Processes ticks and returns an object containing each tick and respective information.
- *
- * @author Leo Tovell
- *
- * @export
- * @param {Buffer} demoBuffer A `Buffer` of the demo file.
- * @param {Number} ticksToAdjust An amount of ticks to adjust all ticks after `omitEnd` by. Used when removing knife rounds.
- * @param {Number} omitStart The start of the range of ticks we are omitting. In this case, the two rounds after knife round before pistol.
- * @param {Number} omitEnd The end of the range of ticks we are omitting. Any ticks after this are adjusted by -`ticksToAdjust`
- * @returns {Object} An object where k=tick and v=an object containing player information
- */
-// export function processBasicTicks(demoBuffer, demoRoundEvents) {
-//   // Get the demo ticks
-//   const ticks = debugTime("parseTicks", () => parseTicks(demoBuffer, ["X", "Y", "team_num", "yaw", "is_alive", "rotation"]));
-
-//   const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = demoRoundEvents;
-
-//   let processedTicks = {};
-//   debugTime("Processing Ticks", () => {
-//     ticks.forEach((data) => {
-//       // Is the tick in the range to be omitted?
-//       // if (data.tick >= omitStart && data.tick < omitEnd) return;
-//       // if (data.tick >= omitEnd) data.tick -= ticksToAdjust;
-//       if (!processedTicks[data.tick]) {
-//         processedTicks[data.tick] = {
-//           players: [],
-//           grenades: [],
-//         };
-//       }
-
-//       const playerExists = processedTicks[data.tick].players.some((player) => player.name === data.name);
-
-//       if (!playerExists) {
-//         processedTicks[data.tick].players.push({
-//           name: data.name,
-//           X: data.X,
-//           Y: data.Y,
-//           yaw: data.yaw,
-//           team_num: data.team_num,
-//           alive: data.is_alive,
-//         });
-//       }
-//     });
-//   });
-
-//   return processedTicks;
-// }
-
 export function processBasicTicks(demoBuffer, demoRoundEvents) {
-  const ticks = debugTime("parseTicks", () => parseTicks(demoBuffer, ["X", "Y", "team_num", "yaw", "is_alive", "rotation"]));
+  const ticks = debugTime("parseTicks", () => parseTicks(demoBuffer, ["X", "Y", "team_num", "yaw", "is_alive", "rotation", "inventory"]));
 
   const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = demoRoundEvents;
 
@@ -298,6 +169,7 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
           yaw: data.yaw,
           team_num: data.team_num,
           alive: data.is_alive,
+          has_c4: data.inventory.includes("C4 Explosive"),
         });
       }
     });
@@ -387,44 +259,13 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
       beforeScoreB,
       afterScoreA: teamAScore,
       afterScoreB: teamBScore,
-      events: [],
+      events: [demoRoundEvents],
       teamASide, // optional if frontend needs this info too
     });
   }
 
   return rounds;
 }
-
-// export function processGrenades(grenades, ticks) {
-//   // const grenades = debugTime("parseGrenades", () => parseGrenades(demoBuffer));
-
-//   debugTime("Processing grenades", () => {
-//     grenades.forEach((nade) => {
-//       // if (nade.tick >= omitStart && nade.tick < omitEnd) return;
-//       // if (nade.tick >= omitEnd) nade.tick -= ticksToAdjust;
-//       if (nade.x != null && nade.y != null) {
-//         if (!ticks[nade.tick]) {
-//           ticks[nade.tick] = {
-//             players: [],
-//             grenades: [],
-//           };
-//         }
-
-//         // Add to the current tick's grenade list
-//         ticks[nade.tick].grenades.push({
-//           id: nade.grenade_entity_id,
-//           type: nade.grenade_type,
-//           name: nade.name,
-//           x: nade.x,
-//           y: nade.y,
-//           z: nade.z,
-//         });
-//       }
-//     });
-//   });
-
-//   return ticks;
-// }
 
 export function processGrenades(grenades, rounds) {
   debugTime("Processing grenades", () => {
