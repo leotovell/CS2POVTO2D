@@ -1,4 +1,5 @@
 import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
+export let wantedGrenadeEvents = ["inferno_startburn", "inferno_expire", "smokegrenade_detonate", "smokegrenade_expired", "flashbang_detonate", "player_blind", "decoy_detonate", "decoy_started", "hegrenade_detonate"];
 
 const DEBUG = true;
 
@@ -245,6 +246,20 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
       teamBScore++;
     }
 
+    // Set the grenades events in this array.
+    let grenadeEvents = [];
+
+    Object.entries(demoRoundEvents).forEach((k, _) => {
+      let eventType = k[0];
+      let events = k[1];
+      if (wantedGrenadeEvents.includes(eventType.replace("_events", ""))) {
+        // Add the events
+        events.forEach((ev) => {
+          if (ev.tick > startTick && ev.tick < officiallyEndedTick) grenadeEvents.push(ev);
+        });
+      }
+    });
+
     rounds.push({
       roundNumber,
       startTick,
@@ -259,7 +274,8 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
       beforeScoreB,
       afterScoreA: teamAScore,
       afterScoreB: teamBScore,
-      events: [demoRoundEvents],
+      events: [],
+      grenadeEvents,
       teamASide, // optional if frontend needs this info too
     });
   }
@@ -268,17 +284,32 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
 }
 
 export function processGrenades(grenades, rounds) {
+  // Check the tick of the grenade, and check the type. Then we filter the according events list by type + tick.
+  // When we find an event corresponding to the grenade, it usually means that it has either detonated (and it no longer moving), so we don't need to continue using the x,y,z from the grenade.
+  // We then can update the detonated event, and can also potentially have a ticks/time remaining.
+  // If we hit an expired event then we stop tracking that grenade, add entity_id to a "don't check anymore" array.
+
   debugTime("Processing grenades", () => {
     grenades.forEach((nade) => {
       if (nade.x == null || nade.y == null) return;
 
       // Find the round that contains this tick
       for (const round of rounds) {
-        if (nade.tick >= round.start_tick && nade.tick <= round.end_tick) {
+        // console.log(nade.tick, round.startTick, round.officiallyEndedTick);
+        if (nade.tick >= round.startTick && nade.tick <= round.officiallyEndedTick) {
           // Ensure the tick exists in this round (you only stored populated ticks)
+          // find events corresponding to this grenade.
+          // let event = null;
+
+          let events = round.grenadeEvents.filter((ev) => ev.entityid === nade.grenade_entity_id).map((ev) => ev.tick);
+
+          // If the tick is before any of the events, add data otherwise don't bother adding as the grenade has stopped moving and detonated, so we'll handle drawing it from the events instead. (saves data)
+
+          if (Math.min([nade.tick, ...events]) !== nade.tick) break;
+
           const tickData = round.ticks[nade.tick];
           if (tickData) {
-            tickData.grenades.push({
+            round.ticks[nade.tick].grenades.push({
               id: nade.grenade_entity_id,
               type: nade.grenade_type,
               name: nade.name,

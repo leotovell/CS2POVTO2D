@@ -8,6 +8,7 @@ import { Worker } from "worker_threads";
 import express from "express";
 import { Readable } from "node:stream";
 import bodyParser from "body-parser";
+import { wantedGrenadeEvents } from "./js/backend.js";
 
 let mainWindow;
 let currentMap = "de_mirage"; //placeholder
@@ -22,6 +23,7 @@ let demoHeader;
 let demoScoreboard;
 let demoRounds;
 let demoMapData;
+let demoRoundEvents;
 
 function runWorker(task, buffer, demoRoundEvents) {
   return new Promise((resolve, reject) => {
@@ -50,26 +52,43 @@ api.get("/api/demo/process", async (req, res) => {
     const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
     let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
     let thisMapData = mapData[currentMap];
-    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, is_bomb_planted_events, is_bomb_dropped_events } = processEvents(demoFileBuffer, [
-      "round_start",
-      "round_freeze_end",
-      "round_end",
-      "round_officially_ended",
-      "is_bomb_dropped",
-      "is_bomb_planted",
-    ]);
 
-    console.log(is_bomb_dropped_events);
-    console.log(is_bomb_planted_events);
+    // let {
+    //   round_start_events,
+    //   round_freeze_end_events,
+    //   round_end_events,
+    //   round_officially_ended_events,
+    //   inferno_startburn_events,
+    //   inferno_expire_events,
+    //   smokegrenade_detonate_events,
+    //   smokegrenade_expired_events,
+    //   flashbang_detonate_events,
+    //   player_blind_events,
+    //   decoy_detonate_events,
+    //   decoy_started_events,
+    //   hegrenade_detonate_events,
+    // }
+    demoRoundEvents = processEvents(demoFileBuffer, ["round_start", "round_freeze_end", "round_end", "round_officially_ended", ...wantedGrenadeEvents]);
 
-    const demoRoundEvents = {
-      round_start_events,
-      round_freeze_end_events,
-      round_end_events,
-      round_officially_ended_events,
-      is_bomb_dropped_events,
-      is_bomb_planted_events,
-    };
+    // console.log(listGameEvents(demoFileBuffer));
+
+    // Grenade Events:
+    // inferno_startburn, smokegrenade_expired, decoy_detonate, player_blind, hegrenade_detonate, flashbang_detonate, inferno_expire, smokegrenade_detonate, decoy_started,
+    // molotov: inferno_startburn, inferno_expire
+    // smoke: smokegrenade_expired, smokegrenade_detonate
+    // flash: flashbang_detonate, player_blind
+    // decoy: decoy_detonate, decoy_started
+    // hegrenade: hegrenade_detonate
+
+    // c4
+    // bomb_begindefuse, bomb_defused, bomb_beginplant, bomb_planted, bomb_exploded, bomb_dropped, bomb_pickup
+
+    // const demoRoundEvents = {
+    //   round_start_events,
+    //   round_freeze_end_events,
+    //   round_end_events,
+    //   round_officially_ended_events,
+    // };
 
     // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
 
@@ -79,7 +98,7 @@ api.get("/api/demo/process", async (req, res) => {
 
     let [rounds, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer, demoRoundEvents), runWorker("grenades", demoFileBuffer)]);
     // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
-    rounds = processGrenades(grenades, rounds);
+    rounds = processGrenades(grenades, rounds, demoRoundEvents);
 
     demoMapData = thisMapData;
     demoRounds = rounds;
@@ -88,6 +107,7 @@ api.get("/api/demo/process", async (req, res) => {
       rounds: demoRounds,
       mapData: thisMapData,
       scoreboard: demoScoreboard,
+      events: demoRoundEvents,
     };
 
     console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
@@ -98,6 +118,7 @@ api.get("/api/demo/process", async (req, res) => {
       rounds: demoRounds,
       mapData: demoMapData,
       scoreboard: demoScoreboard,
+      demoRoundEvents,
     };
 
     console.log("Size:", Buffer.byteLength(JSON.stringify(returnObj), "uft-8"));
@@ -187,6 +208,7 @@ app.whenReady().then(() => {
         // demoEvents = importedDemo.events;
         demoMapData = importedDemo.mapdata;
         demoRounds = importedDemo.rounds;
+        demoRoundEvents = importedDemo.demoRoundEvents;
       } catch (err) {
         console.error("Error reading/parsing .json:", err);
       }
@@ -210,6 +232,7 @@ app.whenReady().then(() => {
       scoreboard: demoScoreboard,
       rounds: demoRounds,
       mapdata: demoMapData,
+      demoRoundEvents,
     };
 
     return new Promise((resolve) => {

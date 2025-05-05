@@ -271,7 +271,22 @@ async function initDemoReviewPage() {
   enableLoader(loader, loaderText, "Processing Demo...");
   const res = await fetch("http://localhost:3000/api/demo/process");
 
-  const { rounds, mapData: map, scoreboard } = await res.json();
+  const response = await res.json();
+
+  // const { rounds, mapData: map, scoreboard, demoRoundEvents } = await res.json();
+
+  const rounds = response.rounds;
+  const map = response.mapData;
+  const scoreboard = response.scoreboard;
+  const demoRoundEvents = response.events;
+  console.log(demoRoundEvents);
+  console.log(response);
+  console.log(rounds);
+
+  // console.log(Object.keys(response));
+
+  // console.log(demoRoundEvents);
+  // console.log(Object.keys(await res.json()));
 
   tickStore.rounds = rounds;
 
