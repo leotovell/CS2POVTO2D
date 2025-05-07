@@ -23,8 +23,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (page === "home") {
     initHomePage();
-  } else if (page === "preview-demo") {
-    initDemoPreviewPage();
+    // } else if (page === "preview-demo") {
+    //   initDemoPreviewPage();
   } else if (page === "review-demo") {
     initDemoReviewPage();
   }
@@ -34,14 +34,15 @@ function initHomePage() {
   let isDemoSelected = false;
   let demoPath = "";
 
-  const demoFileNameSpan = document.getElementById("demoFilePathPreview");
-  const removeDemoBtn = document.getElementById("removeDemoBtn");
-  const submitBtn = document.getElementById("uploadDemoBtn");
+  const uploadDemoBtn = document.getElementById("uploadDemoBtn");
   const loader = document.getElementById("loader");
   const loaderText = document.getElementById("loader-text");
   const isFaceitCheckbox = document.getElementById("setting_isFaceit");
+  const previewContainer = document.getElementById("preview-container");
 
-  submitBtn.addEventListener("click", async (e) => {
+  hideDemoPreview();
+
+  uploadDemoBtn.addEventListener("click", async (e) => {
     e.preventDefault();
 
     const filePaths = await window.electron.openFileDialog();
@@ -50,19 +51,25 @@ function initHomePage() {
       isDemoSelected = true;
       demoPath = filePaths[0];
       localStorage.setItem("demoPath", demoPath);
-      demoFileNameSpan.innerHTML = filePaths[0].split("/").slice(-1)[0];
-      demoFileNameSpan.style.visibility = "visible";
-      removeDemoBtn.style.visibility = "visible";
+      console.log("Processing now");
+      previewDemo(demoPath);
     } else {
       console.log("No file selected.");
     }
   });
 
-  removeDemoBtn.addEventListener("click", (e) => {
-    isDemoSelected = false;
-    removeDemoBtn.style.visibility = "hidden";
-    demoFileNameSpan.style.visibility = "hidden";
-  });
+  function previewDemo(path) {
+    // Need to
+    previewContainer.style.visibility = "unset";
+    loader.style.visibility = "unset";
+  }
+
+  function hideDemoPreview(path) {
+    previewContainer.style.visibility = "hidden";
+    for (let i = 0; i < previewContainer.children.length; i++) {
+      previewContainer.children[i].style.visibility = "hidden";
+    }
+  }
 
   const previewDemoBtn = document.getElementById("previewDemoBtn");
   previewDemoBtn.addEventListener("click", async (e) => {
@@ -82,13 +89,16 @@ function initHomePage() {
   });
 }
 
-function initDemoPreviewPage() {
+function previewDemo(filePath) {
   const loader = document.getElementById("loader");
   const loaderText = document.getElementById("loader-text");
   const previewMapImg = document.getElementById("p_mapImg");
   const scoreboardDiv = document.getElementById("ScoreboardInformation");
   const POVDemoDiv = document.getElementById("POVInformation");
   const demoHeader = JSON.parse(localStorage.getItem("demoHeader"));
+
+  // Set the loader to visible!
+  loader.style.visibility = "unset";
 
   if (demoHeader.client_name == "SourceTV Demo") {
     setElementVisible(scoreboardDiv);

@@ -117,10 +117,9 @@ function createWindow() {
       preload: nodePath.join(nodePath.resolve(), "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      enableBlinkFeatures: "none",
     },
   });
-  mainWindow.loadFile("index.html");
+  mainWindow.loadFile("index.new.html");
 }
 
 app.whenReady().then(() => {
@@ -229,6 +228,7 @@ app.whenReady().then(() => {
   console.log("Initialising Window...");
 
   createWindow();
+  mainWindow.maximize();
 
   app.on("activate", function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
