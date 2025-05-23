@@ -17,7 +17,6 @@ let isPreprocessed = false;
 
 // global vars for demo data
 
-let demoIsFaceit = true;
 let demoHeader;
 let demoScoreboard;
 let demoRounds;
@@ -72,10 +71,6 @@ api.get("/api/demo/process", async (req, res) => {
     };
 
     // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
-
-    if (demoIsFaceit) {
-      // After rounds are processed remove the non-knife and non-regulation/OT rounds.
-    }
 
     let [rounds, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer, demoRoundEvents), runWorker("grenades", demoFileBuffer)]);
     // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
@@ -138,11 +133,10 @@ app.whenReady().then(() => {
     return result.filePaths;
   });
 
-  ipcMain.handle("demo:preview", async (_, demoPath, isFaceit) => {
+  ipcMain.handle("demo:preview", async (_, demoPath) => {
     console.log("Previewing demo:", demoPath);
 
     demoFilePath = demoPath;
-    demoIsFaceit = isFaceit;
 
     // Identify if its a .dem or .json
     if (demoPath.endsWith(".dem")) {

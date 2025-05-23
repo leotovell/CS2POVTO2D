@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CS2 Demo To 2D | Viewer</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/common.css" />
+    <link rel="stylesheet" href="css/demo-preview.css" />
+    <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+      :root {
+        --input-width: 80%;
+        --body-color: #101723;
+        --panel-color: #223149;
+      }
+
+      body,
+      html {
+        height: 100%;
+        margin: 0;
+        background-color: var(--body-color);
+        color: white;
+      }
+
+      .sidebar,
+      .top-panel,
+      .middle-panel,
+      .bottom-panel {
+        background-color: var(--panel-color);
+        /* box-shadow: inset 0 0 0 1px white; */
+        border-radius: 10px;
+      }
+
+      .sidebar {
+        width: 18vw;
+        min-width: 150px;
+        margin: 1vh;
+      }
+
+      .main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .top-panel,
+      .bottom-panel {
+        height: 10vh;
+        margin-top: 1vh;
+        margin-bottom: 1vh;
+      }
+
+      .middle-panel {
+        flex-grow: 1;
+        overflow: auto;
+      }
+
+      input[type="range"] {
+        margin: auto;
+        -webkit-appearance: none;
+        position: relative;
+        overflow: hidden;
+        height: 40px;
+        width: var(--input-width);
+        cursor: pointer;
+        border-radius: 10px; /* iOS */
+      }
+
+      ::-webkit-slider-runnable-track {
+        background: var(--body-color);
+      }
+
+      /*
+ * 1. Set to 0 width and remove border for a slider without a thumb
+ * 2. Shadow is negative the full width of the input and has a spread 
+ *    of the width of the input.
+ */
+      ::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 0px; /* 1 */
+        height: 40px;
+        background: var(--body-color);
+        box-shadow: -5000px 0 0 5000px #304569; /* 2 */
+        /* box-shadow: calc(-1 * var(--input-width)) 0 0 var(--input-width) dodgerblue; 2 */
+        border: 2px solid #999; /* 1 */
+      }
+
+      ::-moz-range-track {
+        height: 40px;
+        background: #ddd;
+      }
+
+      ::-moz-range-thumb {
+        background: var(--body-color);
+        height: 40px;
+        width: 0px; /* 1 */
+        border: 0px solid #999; /* 1 */
+        border-radius: 0 !important;
+        box-shadow: -200px 0 0 200px dodgerblue;
+        box-sizing: border-box;
+      }
+
+      ::-ms-fill-lower {
+        background: dodgerblue;
+      }
+
+      ::-ms-thumb {
+        background: #304569;
+        border: 0px solid #304569; /* 1 */
+        height: 40px;
+        width: 0px; /* 1 */
+        box-sizing: border-box;
+      }
+
+      ::-ms-ticks-after {
+        display: none;
+      }
+
+      ::-ms-ticks-before {
+        display: none;
+      }
+
+      ::-ms-track {
+        background: #ddd;
+        color: transparent;
+        height: 40px;
+        border: none;
+      }
+
+      ::-ms-tooltip {
+        display: none;
+      }
+
+      .bottom-panel {
+        height: 10vh;
+      }
+
+      .timeline-range-wrapper {
+        height: 40px;
+        position: relative;
+      }
+
+      input[type="range"] {
+        height: 40px;
+        width: 100%;
+        cursor: pointer;
+      }
+
+      #event-markers {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .event-marker {
+        position: absolute;
+        width: 2px;
+        height: 60%;
+        background-color: red;
+        transform: translateX(-1px);
+        opacity: 0.9;
+      }
+    </style></head
+  ><!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>CS2 Demo To 2D | Home</title>
+      <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet" />
+      <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
+      <link rel="stylesheet" href="css/common.css" />
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
+      <link rel="stylesheet" href="css/demo-preview.css" />
+      <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+      <style>
+        body {
+          font-family: "Inter", "Noto Sans", sans-serif;
+          background-color: #101723;
+          color: white;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="d-flex h-100">
+        <!-- Left Sidebar -->
+        <div class="sidebar round-bar d-flex flex-column p-3">
+          <h5>Left Sidebar</h5>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main">
+          <div class="top-panel d-flex align-items-center justify-content-center">
+            <h5>Top Panel</h5>
+          </div>
+          <div class="middle-panel d-flex align-items-center justify-content-center">
+            <h5>Middle Panel (Fills Remaining Space)</h5>
+          </div>
+          <!-- <div class="bottom-panel d-flex align-items-center justify-content-center">
+            <input type="range" max="2500" />
+          </div> -->
+
+          <div class="bottom-panel px-3 py-2">
+            <div class="container-fluid h-100">
+              <!-- Row 1 -->
+              <div class="row h-50">
+                <!-- FF/Rewind buttons -->
+                <div class="col-2 d-flex align-items-center justify-content-center gap-2">
+                  <button class="btn btn-outline-light btn-sm"><i class="bi bi-skip-backward-fill"></i></button>
+                  <button class="btn btn-outline-light btn-sm"><i class="bi bi-skip-forward-fill"></i></button>
+                </div>
+                <!-- Event icons -->
+                <div class="col-10 d-flex align-items-center justify-content-between px-3">
+                  <i class="bi bi-bomb" title="Plant"></i>
+                  <i class="bi bi-crosshair" title="Kill"></i>
+                  <i class="bi bi-shield-lock" title="Defuse"></i>
+                  <!-- Add more icons as needed -->
+                </div>
+              </div>
+
+              <!-- Row 2 -->
+              <div class="row h-50">
+                <!-- Play/Pause buttons -->
+                <div class="col-2 d-flex align-items-center justify-content-center gap-2">
+                  <button class="btn btn-outline-success btn-sm"><i class="bi bi-play-fill"></i></button>
+                  <button class="btn btn-outline-danger btn-sm"><i class="bi bi-pause-fill"></i></button>
+                </div>
+                <!-- Timeline and Markers -->
+                <div class="col-10 d-flex align-items-center">
+                  <div class="position-relative w-100 timeline-range-wrapper">
+                    <div id="event-markers"></div>
+                    <input id="timeline-range" type="range" max="2500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="sidebar player-hud d-flex flex-column p-3">
+          <h5>Right Sidebar</h5>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+      <script>
+        const eventTimestamps = [300, 700, 1250, 2000]; // Example values
+        const max = 2500;
+
+        const markersContainer = document.getElementById("event-markers");
+
+        eventTimestamps.forEach((time) => {
+          const marker = document.createElement("div");
+          marker.classList.add("event-marker");
+          marker.style.left = `${(time / max) * 100}%`;
+          markersContainer.appendChild(marker);
+        });
+      </script>
+    </body>
+  </html>
+</html>

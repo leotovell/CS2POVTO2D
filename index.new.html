@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/common.css" />
+    <link rel="stylesheet" href="css/demo-preview.css" />
     <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <style>
       body {
@@ -41,7 +42,8 @@
         background-color: #0e1420;
         border-radius: 0.5rem;
         padding: 1rem;
-        min-height: 500px;
+        /* min-height: 500px; */
+        /* height: 100%; */
       }
 
       .loader-overlay {
@@ -59,7 +61,7 @@
       }
     </style>
   </head>
-  <body id="home" class="min-vh-100 d-flex flex-column m-5">
+  <body id="home" class="min-vh-100 d-flex flex-column m-5" style="overflow: hidden">
     <div class="container-fluid mt-3">
       <div class="row">
         <div class="col">
@@ -116,50 +118,55 @@
             </div>
           </div>
         </div>
-        <div class="col position-relative" id="preview-container" style="visibility: hidden">
-          <!-- Loader overlay only for this container -->
-          <div class="loader-overlay d-flex flex-column justify-content-center align-items-center" id="loader">
-            <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem">
-              <span class="visually-hidden">Loading...</span>
+        <div class="col">
+          <div class="position-relative" id="preview-container" style="visibility: hidden">
+            <!-- Loader overlay only for this container -->
+            <div class="loader-overlay d-flex flex-column justify-content-center align-items-center" id="loader">
+              <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <div class="loader-text mt-3" id="loader-text">Loading Preview...</div>
             </div>
-            <div class="loader-text mt-3" id="loader-text">Loading Preview...</div>
+
+            <!-- Preview content -->
+            <div class="preview-content">
+              <div class="banner-image-container mb-3">
+                <img src="img/maps/de_mirage.png" alt="Map Preview" id="p_mapImg" class="img-fluid rounded" />
+              </div>
+
+              <div id="ScoreboardInformation" class="score-display-container d-flex justify-content-between align-items-center mt-4">
+                <div class="team-list">
+                  <h5 id="teamAName" class="text-center">Team Alpha</h5>
+                  <div class="row row-cols-1" id="p_teamAPlayers"></div>
+                </div>
+
+                <div class="score-display text-center">
+                  <h1 class="display-1 fw-bold">
+                    <span id="teamAScore" class="text-success">13</span>&nbsp;:&nbsp;
+                    <span id="teamBScore" class="text-danger">8</span>
+                  </h1>
+                </div>
+
+                <div class="team-list">
+                  <h5 id="teamBName" class="text-center">Team Bravo</h5>
+                  <div class="row row-cols-1" id="p_teamBPlayers"></div>
+                </div>
+              </div>
+
+              <div style="display: none !important" id="POVInformation" class="d-flex justify-content-center align-items-center my-4">
+                <div class="text-center">
+                  <h1>No scoreboard available for POV Demos</h1>
+                  <p>Recorded by: <span id="recordedBySpan">N/A</span></p>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <!-- Preview content -->
-          <div class="preview-content">
-            <div class="banner-image-container mb-3">
-              <img src="img/maps/blank.png.png" alt="Map Preview" id="p_mapImg" class="img-fluid rounded" />
+          <div class="position-relative row mt-3" id="preview-btns">
+            <div class="col">
+              <button class="btn btn-secondary w-100" id="cancelPreviewBtn">Cancel</button>
             </div>
-
-            <div id="ScoreboardInformation" class="score-display-container d-flex justify-content-between align-items-center my-4">
-              <div class="team-list">
-                <h5 id="teamAName" class="text-center placeholder">Team Alpha</h5>
-                <div class="row row-cols-1" id="p_teamAPlayers"></div>
-              </div>
-
-              <div class="score-display text-center">
-                <h1 class="display-1 fw-bold">
-                  <span id="teamAScore" class="text-success">-</span>&nbsp;:&nbsp;
-                  <span id="teamBScore" class="text-danger">-</span>
-                </h1>
-              </div>
-
-              <div class="team-list">
-                <h5 id="teamBName" class="text-center">Team Bravo</h5>
-                <div class="row row-cols-1" id="p_teamBPlayers"></div>
-              </div>
-            </div>
-
-            <div style="visibility: hidden" id="POVInformation" class="d-flex justify-content-center align-items-center my-4">
-              <div class="text-center">
-                <h1>No scoreboard available for POV Demos</h1>
-                <p>Recorded by: <span id="recordedBySpan">N/A</span></p>
-              </div>
-            </div>
-
-            <div class="button-container d-flex gap-2">
-              <button id="backBtn" class="btn btn-danger">Back</button>
-              <button id="nextBtn" class="btn btn-primary">Next</button>
+            <div class="col">
+              <button class="btn btn-success w-100" id="processDemoBtn">Next</button>
             </div>
           </div>
         </div>

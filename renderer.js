@@ -30,15 +30,25 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-function initHomePage() {
+async function initHomePage() {
   let isDemoSelected = false;
   let demoPath = "";
 
   const uploadDemoBtn = document.getElementById("uploadDemoBtn");
   const loader = document.getElementById("loader");
-  const loaderText = document.getElementById("loader-text");
-  const isFaceitCheckbox = document.getElementById("setting_isFaceit");
   const previewContainer = document.getElementById("preview-container");
+  const previewButtons = document.getElementById("preview-btns");
+  const previewMapImg = document.getElementById("p_mapImg");
+  const scoreboardDiv = document.getElementById("ScoreboardInformation");
+  const POVDemoDiv = document.getElementById("POVInformation");
+  const cancelPreviewBtn = document.getElementById("cancelPreviewBtn");
+  const processDemoBtn = document.getElementById("processDemoBtn");
+  const previewTeamAPlayerDiv = document.getElementById("p_teamAPlayers");
+  const previewTeamBPlayerDiv = document.getElementById("p_teamBPlayers");
+  const teamAScoreSpan = document.getElementById("teamAScore");
+  const teamBScoreSpan = document.getElementById("teamBScore");
+  const teamANameSpan = document.getElementById("teamAName");
+  const teamBNameSpan = document.getElementById("teamBName");
 
   hideDemoPreview();
 
@@ -58,10 +68,79 @@ function initHomePage() {
     }
   });
 
-  function previewDemo(path) {
-    // Need to
+  cancelPreviewBtn.addEventListener("click", () => {
+    hideDemoPreview();
+    // Unselect any selected demos.
+  });
+
+  processDemoBtn.addEventListener("click", () => {
+    // Show the next page, with a full-screen loading bar (no opacity).
+    loadPage("viewer.new.html");
+  });
+
+  async function previewDemo(path) {
+    // Hide, in-case we already had stuff loaded in.
+    hideDemoPreview();
     previewContainer.style.visibility = "unset";
     loader.style.visibility = "unset";
+
+    // Preview logic
+    const { header, scoreboard } = await window.electron.previewDemo(demoPath);
+    localStorage.setItem("demoMapName", header.map_name);
+    localStorage.setItem("demoHeader", header);
+    localStorage.setItem("demoScoreboard", scoreboard);
+
+    console.log(header);
+
+    // set map image
+    previewMapImg.src = "img/maps/" + header.map_name + ".png";
+
+    // Set the score + team names
+
+    const teamAScore = scoreboard.teamAlpha.score;
+    const teamBScore = scoreboard.teamBeta.score;
+
+    teamAScoreSpan.innerHTML = teamAScore;
+    teamAScoreSpan.className = teamAScore > teamBScore ? "text-success" : "text-danger";
+    teamANameSpan.innerHTML = scoreboard.teamAlpha.name;
+
+    teamBScoreSpan.innerHTML = teamBScore;
+    teamBScoreSpan.className = teamBScore > teamAScore ? "text-success" : "text-danger";
+    teamBNameSpan.innerHTML = scoreboard.teamBeta.name;
+
+    // Populate scoreboard
+    if (scoreboard) {
+      previewTeamAPlayerDiv.innerHTML = ""; // clear it.
+      scoreboard.teamAlpha.players.forEach((player) => {
+        let entry = document.createElement("div");
+        entry.className = "col";
+        entry.innerHTML = player.name;
+        previewTeamAPlayerDiv.append(entry);
+        entry.style.margin = "0";
+      });
+      previewTeamBPlayerDiv.innerHTML = ""; // clear it.
+      scoreboard.teamBeta.players.forEach((player) => {
+        let entry = document.createElement("div");
+        entry.className = "col";
+        entry.innerHTML = player.name;
+        previewTeamBPlayerDiv.append(entry);
+        entry.style.margin = "0";
+      });
+    }
+
+    localStorage.setItem("teamAName", scoreboard.teamAlpha.name);
+    localStorage.setItem("teamBName", scoreboard.teamBeta.name);
+
+    // Show everything (set everything to visibility: unset)
+    for (let i = 0; i < previewContainer.children.length; i++) {
+      previewContainer.children[i].style.visibility = "unset";
+    }
+
+    previewButtons.style.visibility = "unset";
+
+    loader.style.visibility = "hidden";
+
+    console.log("preview Loaded");
   }
 
   function hideDemoPreview(path) {
@@ -69,24 +148,25 @@ function initHomePage() {
     for (let i = 0; i < previewContainer.children.length; i++) {
       previewContainer.children[i].style.visibility = "hidden";
     }
+    previewButtons.style.visibility = "hidden";
   }
 
-  const previewDemoBtn = document.getElementById("previewDemoBtn");
-  previewDemoBtn.addEventListener("click", async (e) => {
-    e.preventDefault();
-    if (!isDemoSelected) {
-      alert("Please select a demo.");
-      return;
-    }
-    enableLoader(loader, loaderText, "Previewing Demo...");
-    const demoPreviewInfo = await window.electron.previewDemo(demoPath, isFaceitCheckbox.checked);
-    console.log(demoPreviewInfo);
-    localStorage.setItem("demoMapName", demoPreviewInfo.header.map_name);
-    localStorage.setItem("demoHeader", JSON.stringify(demoPreviewInfo.header));
-    localStorage.setItem("demoScoreboard", JSON.stringify(demoPreviewInfo.scoreboard));
-    disableLoader(loader);
-    loadPage("demoPreview.html");
-  });
+  // const previewDemoBtn = document.getElementById("previewDemoBtn");
+  // previewDemoBtn.addEventListener("click", async (e) => {
+  //   e.preventDefault();
+  //   if (!isDemoSelected) {
+  //     alert("Please select a demo.");
+  //     return;
+  //   }
+  //   enableLoader(loader, loaderText, "Previewing Demo...");
+  //   const demoPreviewInfo = await window.electron.previewDemo(demoPath, isFaceitCheckbox.checked);
+  //   console.log(demoPreviewInfo);
+  //   localStorage.setItem("demoMapName", demoPreviewInfo.header.map_name);
+  //   localStorage.setItem("demoHeader", JSON.stringify(demoPreviewInfo.header));
+  //   localStorage.setItem("demoScoreboard", JSON.stringify(demoPreviewInfo.scoreboard));
+  //   disableLoader(loader);
+  //   loadPage("demoPreview.html");
+  // });
 }
 
 function previewDemo(filePath) {
@@ -112,38 +192,36 @@ function previewDemo(filePath) {
     const teamBNameSpan = document.getElementById("teamBName");
     const teamAScore = demoScoreboard.teamAlpha.score;
     const teamBScore = demoScoreboard.teamBeta.score;
-    const teamAName = demoScoreboard.teamAlpha.name;
-    const teamBName = demoScoreboard.teamBeta.name;
 
     localStorage.setItem("teamAName", teamAName);
     localStorage.setItem("teamBName", teamBName);
 
     // Set score
-    teamAScoreSpan.innerHTML = teamAScore;
-    teamAScoreSpan.className = teamAScore > teamBScore ? "text-success" : "text-danger";
-    teamANameSpan.innerHTML = teamAName;
+    // teamAScoreSpan.innerHTML = teamAScore;
+    // teamAScoreSpan.className = teamAScore > teamBScore ? "text-success" : "text-danger";
+    // teamANameSpan.innerHTML = teamAName;
 
-    teamBScoreSpan.innerHTML = teamBScore;
-    teamBScoreSpan.className = teamBScore > teamAScore ? "text-success" : "text-danger";
-    teamBNameSpan.innerHTML = teamBName;
+    // teamBScoreSpan.innerHTML = teamBScore;
+    // teamBScoreSpan.className = teamBScore > teamAScore ? "text-success" : "text-danger";
+    // teamBNameSpan.innerHTML = teamBName;
 
     // Add players to scoreboard
-    if (demoScoreboard) {
-      demoScoreboard.teamAlpha.players.forEach((player) => {
-        let entry = document.createElement("div");
-        entry.className = "col";
-        entry.innerHTML = player.name;
-        previewTeamAPlayerDiv.append(entry);
-        entry.style.margin = "0";
-      });
-      demoScoreboard.teamBeta.players.forEach((player) => {
-        let entry = document.createElement("div");
-        entry.className = "col";
-        entry.innerHTML = player.name;
-        previewTeamBPlayerDiv.append(entry);
-        entry.style.margin = "0";
-      });
-    }
+    // if (demoScoreboard) {
+    //   demoScoreboard.teamAlpha.players.forEach((player) => {
+    //     let entry = document.createElement("div");
+    //     entry.className = "col";
+    //     entry.innerHTML = player.name;
+    //     previewTeamAPlayerDiv.append(entry);
+    //     entry.style.margin = "0";
+    //   });
+    //   demoScoreboard.teamBeta.players.forEach((player) => {
+    //     let entry = document.createElement("div");
+    //     entry.className = "col";
+    //     entry.innerHTML = player.name;
+    //     previewTeamBPlayerDiv.append(entry);
+    //     entry.style.margin = "0";
+    //   });
+    // }
   } else {
     // It's a POV demo. We don't analyse the scoreboard or score for this.
     setElementVisible(POVDemoDiv);
