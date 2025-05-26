@@ -85,7 +85,16 @@
     "scale": 7.0,
     "rotate": null,
     "zoom": null,
-    "lower_level_max_units": -495.0
+    "src_x": 0,
+    "src_y": 262,
+    "offset_y": 20,
+    "src_width": 1024,
+    "src_height": 547,
+    "lower_level_max_units": -495.0,
+    "lower_src_x": 468,
+    "lower_src_y": 339,
+    "lower_src_width": 292,
+    "lower_src_height": 450
   },
   "de_overpass": {
     "pos_x": -4831,

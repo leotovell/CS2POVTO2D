@@ -15,7 +15,7 @@ import {
   getRoundInfo,
   getVirtualTickFromDemoTick,
 } from "./js/demo.js";
-import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel } from "./js/ui.js";
+import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel, setElementInvisible } from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initHomePage();
     // } else if (page === "preview-demo") {
     //   initDemoPreviewPage();
-  } else if (page === "review-demo") {
+  } else if (page === "viewer") {
     initDemoReviewPage();
   }
 });
@@ -293,6 +293,41 @@ export let settingsToConfigure = [
   { name: "freezeTimeLength", type: "select", defaultValue: 3 },
 ];
 
+export let canvasSettings = {
+  zoom: 1,
+  offsetX: 0,
+  offsetY: 0,
+  isDragging: false,
+  lastMouseX: 0,
+  lastMouseY: 0,
+  mainImage: 0,
+  layers: 1,
+};
+
+function resizeCanvas() {
+  const scale = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+
+  // Set physical canvas size in pixels
+  canvas.width = rect.width * scale;
+  canvas.height = rect.height * scale;
+
+  // Clear any old transforms
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Scale to fit a 1024x1024 logical coordinate space
+  const scaleX = canvas.width / 1024;
+  const scaleY = canvas.height / 1024;
+  const uniformScale = Math.min(scaleX, scaleY);
+
+  // Center the drawing in the canvas
+  const offsetX = (canvas.width - 1024 * uniformScale) / 2;
+  const offsetY = (canvas.height - 1024 * uniformScale) / 2;
+
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(uniformScale, uniformScale);
+}
+
 async function initDemoReviewPage() {
   // Define all HTML elements
   const loader = document.getElementById("loader");
@@ -302,7 +337,9 @@ async function initDemoReviewPage() {
   const ctx = canvas.getContext("2d");
   const speedMultiplierSelect = document.getElementById("speedMultiplierSelect");
   const scrubBar = document.getElementById("scrubBar");
-  const playPauseBtn = document.getElementById("playPauseBtn");
+  // const playPauseBtn = document.getElementById("playPauseBtn");
+  const playBtn = document.getElementById("play-btn");
+  const pauseBtn = document.getElementById("pause-btn");
   const roundSelect = document.getElementById("roundSelect");
   const prevRoundBtn = document.getElementById("prevRoundBtn");
   const nextRoundBtn = document.getElementById("nextRoundBtn");
@@ -311,29 +348,37 @@ async function initDemoReviewPage() {
   const multiRoundOverlay = document.getElementById("multiRoundOverlay");
   const exitMultiRoundModeBtn = document.getElementById("exit-multi-round-btn");
   const multiRoundOverlayToggleBtn = document.getElementById("multiRoundOverlayToggleBtn");
+  const printTickbtn = document.getElementById("printCurrentTick");
+  const debugPanel = document.getElementById("debugPanel");
 
-  multiRoundOverlayToggleBtn.addEventListener("click", () => {
-    // Show overlay
-    multiRoundOverlay.style.visibility = "visible";
+  let isDebugPanelShowing = false;
 
-    // Shows rounds panel
-    roundsPanel.style.visibility = "visible";
+  printTickbtn.onclick = () => {
+    console.log(tick);
+  };
 
-    // Hide enter multi-round button;
-    multiRoundOverlayToggleBtn.style.display = "none";
+  // multiRoundOverlayToggleBtn.addEventListener("click", () => {
+  //   // Show overlay
+  //   multiRoundOverlay.style.visibility = "visible";
 
-    settings.multiRoundOverlayMode = true;
-  });
+  //   // Shows rounds panel
+  //   roundsPanel.style.visibility = "visible";
 
-  exitMultiRoundModeBtn.addEventListener("click", () => {
-    multiRoundOverlay.style.visibility = "hidden";
+  //   // Hide enter multi-round button;
+  //   multiRoundOverlayToggleBtn.style.display = "none";
 
-    roundsPanel.style.visibility = "hidden";
+  //   settings.multiRoundOverlayMode = true;
+  // });
 
-    multiRoundOverlayToggleBtn.style.display = "";
+  // exitMultiRoundModeBtn.addEventListener("click", () => {
+  //   multiRoundOverlay.style.visibility = "hidden";
 
-    settings.multiRoundOverlayMode = false;
-  });
+  //   roundsPanel.style.visibility = "hidden";
+
+  //   multiRoundOverlayToggleBtn.style.display = "";
+
+  //   settings.multiRoundOverlayMode = false;
+  // });
 
   saveDemoBtn.addEventListener("click", async () => {
     const res = await window.electron.saveProcessedDemo();
@@ -356,24 +401,26 @@ async function initDemoReviewPage() {
 
   settings.teamSelected = localStorage.getItem("teamAName");
   // Process and store the demo ticks
-  enableLoader(loader, loaderText, "Processing Demo...");
+  // enableLoader(loader, loaderText, "Processing Demo...");
   const res = await fetch("http://localhost:3000/api/demo/process");
 
   const { rounds, mapData: map, scoreboard } = await res.json();
 
   tickStore.rounds = rounds;
 
+  console.log(map);
+
   constructTickMap(rounds);
 
-  disableLoader(loader);
+  // disableLoader(loader);
   loadCanvasVars(canvas, ctx);
   loadMapVars(map);
 
   // Set up the player filters checkboxes
-  const playerFiltersModal = document.getElementById("playerFiltersModalTeamBox");
-  setupPlayerFiltersModal(playerFiltersModal, scoreboard);
-  setupSettingsListeners();
-  setupMultiRoundsPanel(document.getElementById("multi-rounds-list"), rounds);
+  // const playerFiltersModal = document.getElementById("playerFiltersModalTeamBox");
+  // setupPlayerFiltersModal(playerFiltersModal, scoreboard);
+  // setupSettingsListeners();
+  // setupMultiRoundsPanel(document.getElementById("multi-rounds-list"), rounds);
 
   // Flags
   const tickrate = 64;
@@ -385,16 +432,23 @@ async function initDemoReviewPage() {
   let tick;
 
   // Basic event listeners
-  let speedMultiplier = parseFloat(speedMultiplierSelect.value);
-  speedMultiplierSelect.onchange = (e) => {
-    speedMultiplier = parseFloat(e.target.value);
-  };
+  // let speedMultiplier = parseFloat(speedMultiplierSelect.value);
+  // speedMultiplierSelect.onchange = (e) => {
+  //   speedMultiplier = parseFloat(e.target.value);
+  // };
+  let speedMultiplier = 1;
 
   // Loading the map image background and beginning the replay!
-  const mapImg = new Image();
-  mapImg.src = "map-data/" + localStorage.getItem("demoMapName") + ".png";
 
-  mapImg.onload = () => {
+  const mainMapImg = new Image();
+  const lowerMapImg = new Image();
+
+  let imagesLoaded = 0;
+  canvasSettings.layers = map.lower_level_max_units !== -1000000.0 ? 2 : 1;
+
+  const onAllImagesLoaded = () => {
+    resizeCanvas();
+    resetView();
     // renderRoundSegments(rounds);
 
     function drawFrame() {
@@ -406,23 +460,23 @@ async function initDemoReviewPage() {
         tickStore.currentRound = getRoundInfo(tickStore.currentTick);
 
         // Update the forward/backward round buttons
-        if (tickStore.currentRound.roundNumber == 1) {
-          disableElement(prevRoundBtn);
-        } else {
-          enableElement(prevRoundBtn);
-        }
-        if (tickStore.currentRound.roundNumber == tickStore.rounds.length) {
-          disableElement(nextRoundBtn);
-        } else {
-          enableElement(nextRoundBtn);
-        }
+        // if (tickStore.currentRound.roundNumber == 1) {
+        //   disableElement(prevRoundBtn);
+        // } else {
+        //   enableElement(prevRoundBtn);
+        // }
+        // if (tickStore.currentRound.roundNumber == tickStore.rounds.length) {
+        //   disableElement(nextRoundBtn);
+        // } else {
+        //   enableElement(nextRoundBtn);
+        // }
 
         // Are we between a round start and freeze end? Skip to the desired freeze time length.
         if (tickStore.currentDemoTick < tickStore.currentRound.freezeEndTick - settings.freezeTimeLength * tickrate) {
           tickStore.currentTick = getVirtualTickFromDemoTick(tickStore.currentRound.freezeEndTick - settings.freezeTimeLength * tickrate);
         }
 
-        drawTick(tick, mapImg);
+        drawTick(tick, mainMapImg, lowerMapImg);
       } else {
         console.warn("Skipping tick", tickStore.currentTick, "due to missing data - likely due to demo inconsistencies.");
       }
@@ -444,92 +498,220 @@ async function initDemoReviewPage() {
     }
 
     // --- Scrubbing logic ---
-    scrubBar.addEventListener("input", () => {
-      // Only pause if it was playing before scrubbing
-      if (!paused && !isScrubbing) {
-        wasPlayingBeforeScrub = true;
-        paused = true;
-        playPauseBtn.innerText = "Play";
-      }
+    // scrubBar.addEventListener("input", () => {
+    //   // Only pause if it was playing before scrubbing
+    //   if (!paused && !isScrubbing) {
+    //     wasPlayingBeforeScrub = true;
+    //     paused = true;
+    //     playPauseBtn.innerText = "Play";
+    //   }
 
-      isScrubbing = true; // Start scrubbing
-      clearTimeout(animationTimeout); // Stop any current animation
+    //   isScrubbing = true; // Start scrubbing
+    //   clearTimeout(animationTimeout); // Stop any current animation
 
-      const newTick = parseInt(scrubBar.value);
-      console.log(newTick);
-      seekToDemoTime(newTick);
-      tickStore.currentRound = getRoundInfo(tickStore.currentTick);
+    //   const newTick = parseInt(scrubBar.value);
+    //   console.log(newTick);
+    //   seekToDemoTime(newTick);
+    //   tickStore.currentRound = getRoundInfo(tickStore.currentTick);
 
-      tick = getTickData(tickStore.currentTick);
-      tickStore.currentDemoTick = tick.demoTick;
-      if (tick == null) {
-        console.warn("Skipping tick", tickStore.currentTick, "due to missing data - likely due to demo inconsistencies.");
-      } else {
-        drawTick(tick, mapImg); // Just render the frame without resuming playback
-      }
+    //   tick = getTickData(tickStore.currentTick);
+    //   tickStore.currentDemoTick = tick.demoTick;
+    //   if (tick == null) {
+    //     console.warn("Skipping tick", tickStore.currentTick, "due to missing data - likely due to demo inconsistencies.");
+    //   } else {
+    //     drawTick(tick, mapImg); // Just render the frame without resuming playback
+    //   }
 
-      roundSelect.value = tickStore.currentRound.roundNumber;
-    });
+    //   roundSelect.value = tickStore.currentRound.roundNumber;
+    // });
 
-    scrubBar.addEventListener("change", () => {
-      isScrubbing = false; // End scrubbing
+    // scrubBar.addEventListener("change", () => {
+    //   isScrubbing = false; // End scrubbing
 
-      // If it was playing before scrubbing, resume playback
-      paused = !wasPlayingBeforeScrub;
-      playPauseBtn.innerText = paused ? "Play" : "Pause";
+    //   // If it was playing before scrubbing, resume playback
+    //   paused = !wasPlayingBeforeScrub;
+    //   playPauseBtn.innerText = paused ? "Play" : "Pause";
 
-      if (!paused) {
-        drawFrame(); // Resume playback if it was playing before
-      }
-    });
+    //   if (!paused) {
+    //     drawFrame(); // Resume playback if it was playing before
+    //   }
+    // });
 
     // --- Play / Pause Button ---
-    playPauseBtn.addEventListener("click", () => {
-      paused = !paused;
-      if (!paused) {
-        playPauseBtn.innerText = "Pause";
+    // playPauseBtn.addEventListener("click", () => {
+    //   paused = !paused;
+    //   if (!paused) {
+    //     playPauseBtn.innerText = "Pause";
+    //     drawFrame();
+    //   } else {
+    //     playPauseBtn.innerText = "Play";
+    //     clearTimeout(animationTimeout);
+    //   }
+    // });
+
+    playBtn.addEventListener("click", () => {
+      if (paused) {
+        playBtn.classList.add("active");
+        pauseBtn.classList.remove("active");
+        paused = false;
         drawFrame();
-      } else {
-        playPauseBtn.innerText = "Play";
+      }
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      if (!paused) {
+        pauseBtn.classList.add("active");
+        playBtn.classList.remove("active");
+        paused = true;
         clearTimeout(animationTimeout);
       }
     });
 
     // Add round select options (and also init the listener)
-    for (let round of tickStore.rounds) {
-      const option = document.createElement("option");
-      option.value = round.roundNumber;
-      option.innerHTML = round.roundNumber;
-      roundSelect.append(option);
-    }
+    // for (let round of tickStore.rounds) {
+    //   const option = document.createElement("option");
+    //   option.value = round.roundNumber;
+    //   option.innerHTML = round.roundNumber;
+    //   roundSelect.append(option);
+    // }
 
-    roundSelect.addEventListener("input", () => {
-      goToRound(roundSelect.value); //change selected tick
-    });
+    // roundSelect.addEventListener("input", () => {
+    //   goToRound(roundSelect.value); //change selected tick
+    // });
 
-    prevRoundBtn.addEventListener("click", () => {
-      if (tickStore.currentRound.roundNumber - 1 < 1) {
-        alert("No previous round!");
-      } else {
-        goToRound(tickStore.currentRound.roundNumber - 1);
-        roundSelect.value = tickStore.currentRound.roundNumber;
-      }
-    });
+    // prevRoundBtn.addEventListener("click", () => {
+    //   if (tickStore.currentRound.roundNumber - 1 < 1) {
+    //     alert("No previous round!");
+    //   } else {
+    //     goToRound(tickStore.currentRound.roundNumber - 1);
+    //     roundSelect.value = tickStore.currentRound.roundNumber;
+    //   }
+    // });
 
-    disableElement(prevRoundBtn);
+    // disableElement(prevRoundBtn);
 
-    nextRoundBtn.addEventListener("click", () => {
-      if (tickStore.currentRound.isLastRound) {
-        alert("No further round!");
-      } else {
-        // tickStore.currentRound++;
-        const nextRoundNumber = tickStore.currentRound.roundNumber + 1;
-        goToRound(nextRoundNumber);
-        roundSelect.value = nextRoundNumber;
-      }
-    });
+    // nextRoundBtn.addEventListener("click", () => {
+    //   if (tickStore.currentRound.isLastRound) {
+    //     alert("No further round!");
+    //   } else {
+    //     // tickStore.currentRound++;
+    //     const nextRoundNumber = tickStore.currentRound.roundNumber + 1;
+    //     goToRound(nextRoundNumber);
+    //     roundSelect.value = nextRoundNumber;
+    //   }
+    // });
 
     // Start playback
     drawFrame();
   };
+
+  const checkIfAllImagesLoaded = () => {
+    imagesLoaded++;
+    if (imagesLoaded === canvasSettings.layers) {
+      onAllImagesLoaded();
+    }
+  };
+
+  mainMapImg.onload = checkIfAllImagesLoaded;
+  lowerMapImg.onload = checkIfAllImagesLoaded;
+
+  mainMapImg.src = `map-data/${localStorage.getItem("demoMapName")}.png`;
+  if (canvasSettings.layers == 2) {
+    lowerMapImg.src = `map-data/${localStorage.getItem("demoMapName")}_lower.png`;
+  }
+
+  // mapImg.onload = () => {};
+
+  function clampOffsets() {
+    // const scaledWidth = 1024 * canvasSettings.zoom;
+    // const scaledHeight = 1024 * canvasSettings.zoom;
+    // const minOffsetX = Math.min(0, canvas.width - scaledWidth);
+    // const minOffsetY = Math.min(0, canvas.height - scaledHeight);
+    // canvasSettings.offsetX = Math.max(minOffsetX, Math.min(canvasSettings.offsetX, 0));
+    // canvasSettings.offsetY = Math.max(minOffsetY, Math.min(canvasSettings.offsetY, 0));
+  }
+
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+
+    const zoomFactor = 1.1;
+
+    // Get mouse position relative to canvas
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Convert to world (map) coordinates
+    const worldX = (mouseX - canvasSettings.offsetX) / canvasSettings.zoom;
+    const worldY = (mouseY - canvasSettings.offsetY) / canvasSettings.zoom;
+
+    // Apply zoom
+    const delta = e.deltaY < 0 ? zoomFactor : 1 / zoomFactor;
+    canvasSettings.zoom *= delta;
+    canvasSettings.zoom = Math.min(Math.max(canvasSettings.zoom, 1), 5);
+
+    // Adjust offset so the world point under the mouse stays stationary
+    canvasSettings.offsetX = mouseX - worldX * canvasSettings.zoom;
+    canvasSettings.offsetY = mouseY - worldY * canvasSettings.zoom;
+
+    clampOffsets();
+    drawTick(tick, mainMapImg, lowerMapImg);
+  });
+
+  canvas.addEventListener("mousedown", (e) => {
+    canvasSettings.isDragging = true;
+    canvasSettings.lastMouseX = e.clientX;
+    canvasSettings.lastMouseY = e.clientY;
+  });
+
+  canvas.addEventListener("mouseup", () => {
+    canvasSettings.isDragging = false;
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    canvasSettings.isDragging = false;
+  });
+
+  canvas.addEventListener("mousemove", (e) => {
+    if (!canvasSettings.isDragging) return;
+
+    const dx = e.clientX - canvasSettings.lastMouseX;
+    const dy = e.clientY - canvasSettings.lastMouseY;
+
+    canvasSettings.offsetX += dx;
+    canvasSettings.offsetY += dy;
+
+    canvasSettings.lastMouseX = e.clientX;
+    canvasSettings.lastMouseY = e.clientY;
+
+    clampOffsets();
+    drawTick(tick, mainMapImg, lowerMapImg);
+  });
+
+  const resetView = () => {
+    canvasSettings.zoom = 1;
+    // canvasSettings.offsetX = (canvas.width - 1024) / 2;
+    // canvasSettings.offsetY = (canvas.height - 1024) / 2;
+    canvasSettings.offsetX = 0;
+    canvasSettings.offsetY = 0;
+    clampOffsets();
+    drawTick(tick, mainMapImg, lowerMapImg);
+  };
+
+  document.addEventListener("keydown", (e) => {
+    console.log(e.code);
+    if (e.code === "Space") {
+      e.preventDefault(); // Prevent page scrolling
+      resetView();
+    }
+    if (e.code === "KeyD") {
+      e.preventDefault();
+      if (isDebugPanelShowing) {
+        setElementInvisible(debugPanel);
+      } else {
+        setElementVisible(debugPanel);
+      }
+      isDebugPanelShowing = !isDebugPanelShowing;
+    }
+  });
 }

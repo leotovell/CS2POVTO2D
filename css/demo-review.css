@@ -7,6 +7,7 @@
   background-color: #f8f9fa;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
   border-radius: 8px;
+  color: black;
 }
 
 .panel-header {
@@ -177,4 +178,16 @@
   display: inline;
   color: green;
   content: "✔";
+}
+
+.event-icon {
+  width: 32px;
+  height: 32px;
+  position: absolute;
+  transform: translate(-48%, -130%);
+  transition: all linear 0.5s;
+}
+
+.event-icon:hover {
+  color: white;
 }

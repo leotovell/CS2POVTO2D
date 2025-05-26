@@ -21,6 +21,7 @@ let demoHeader;
 let demoScoreboard;
 let demoRounds;
 let demoMapData;
+let demoMapName;
 
 function runWorker(task, buffer, demoRoundEvents) {
   return new Promise((resolve, reject) => {
@@ -48,7 +49,7 @@ api.get("/api/demo/process", async (req, res) => {
   if (demoFilePath.endsWith(".dem")) {
     const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
     let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
-    let thisMapData = mapData[currentMap];
+    let thisMapData = mapData[demoHeader.map_name];
     let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, is_bomb_planted_events, is_bomb_dropped_events } = processEvents(demoFileBuffer, [
       "round_start",
       "round_freeze_end",
@@ -89,9 +90,13 @@ api.get("/api/demo/process", async (req, res) => {
 
     // return returnObj;
   } else if (demoFilePath.endsWith(".json")) {
+    const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
+    let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
+    let thisMapData = mapData[demoHeader.map_name];
+    // console.log(demoScoreboard);
     returnObj = {
       rounds: demoRounds,
-      mapData: demoMapData,
+      mapData: thisMapData,
       scoreboard: demoScoreboard,
     };
 
@@ -178,16 +183,20 @@ app.whenReady().then(() => {
         demoScoreboard = importedDemo.scoreboard;
         // demoTicks = importedDemo.ticks;
         // demoEvents = importedDemo.events;
-        demoMapData = importedDemo.mapdata;
         demoRounds = importedDemo.rounds;
       } catch (err) {
         console.error("Error reading/parsing .json:", err);
       }
     }
 
+    const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
+    let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
+    let thisMapData = mapData[demoHeader.map_name];
+
     return {
       header: demoHeader,
       scoreboard: demoScoreboard,
+      mapData: thisMapData,
     };
   });
 
@@ -202,7 +211,6 @@ app.whenReady().then(() => {
       header: demoHeader,
       scoreboard: demoScoreboard,
       rounds: demoRounds,
-      mapdata: demoMapData,
     };
 
     return new Promise((resolve) => {

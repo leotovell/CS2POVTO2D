@@ -144,7 +144,7 @@ export function processEvents(demoBuffer, wanted_events) {
 }
 
 export function processBasicTicks(demoBuffer, demoRoundEvents) {
-  const ticks = debugTime("parseTicks", () => parseTicks(demoBuffer, ["X", "Y", "team_num", "yaw", "is_alive", "rotation", "inventory"]));
+  const ticks = debugTime("parseTicks", () => parseTicks(demoBuffer, ["X", "Y", "Z", "team_num", "yaw", "is_alive", "rotation", "inventory"]));
 
   const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = demoRoundEvents;
 
@@ -166,6 +166,7 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
           name: data.name,
           X: data.X, // apply the coord transformation here
           Y: data.Y,
+          Z: data.Z,
           yaw: data.yaw,
           team_num: data.team_num,
           alive: data.is_alive,
