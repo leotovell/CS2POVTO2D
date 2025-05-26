@@ -336,7 +336,7 @@ async function initDemoReviewPage() {
   const canvas = document.getElementById("minimap");
   const ctx = canvas.getContext("2d");
   const speedMultiplierSelect = document.getElementById("speedMultiplierSelect");
-  const scrubBar = document.getElementById("scrubBar");
+  const scrubBar = document.getElementById("timeline-range");
   // const playPauseBtn = document.getElementById("playPauseBtn");
   const playBtn = document.getElementById("play-btn");
   const pauseBtn = document.getElementById("pause-btn");
@@ -349,12 +349,17 @@ async function initDemoReviewPage() {
   const exitMultiRoundModeBtn = document.getElementById("exit-multi-round-btn");
   const multiRoundOverlayToggleBtn = document.getElementById("multiRoundOverlayToggleBtn");
   const printTickbtn = document.getElementById("printCurrentTick");
+  const printTickstoreBtn = document.getElementById("printCurrentTickstore");
   const debugPanel = document.getElementById("debugPanel");
 
   let isDebugPanelShowing = false;
 
   printTickbtn.onclick = () => {
     console.log(tick);
+  };
+
+  printTickstoreBtn.onclick = () => {
+    console.log(tickStore);
   };
 
   // multiRoundOverlayToggleBtn.addEventListener("click", () => {
@@ -431,6 +436,8 @@ async function initDemoReviewPage() {
 
   let tick;
 
+  let beginPlaying = true;
+
   // Basic event listeners
   // let speedMultiplier = parseFloat(speedMultiplierSelect.value);
   // speedMultiplierSelect.onchange = (e) => {
@@ -450,6 +457,8 @@ async function initDemoReviewPage() {
     resizeCanvas();
     resetView();
     // renderRoundSegments(rounds);
+
+    // Begin paused?
 
     function drawFrame() {
       if (paused || isScrubbing) return;
@@ -493,61 +502,46 @@ async function initDemoReviewPage() {
       } else {
         console.log("Playback complete");
         paused = true;
-        playPauseBtn.innerText = "Play";
       }
     }
 
     // --- Scrubbing logic ---
-    // scrubBar.addEventListener("input", () => {
-    //   // Only pause if it was playing before scrubbing
-    //   if (!paused && !isScrubbing) {
-    //     wasPlayingBeforeScrub = true;
-    //     paused = true;
-    //     playPauseBtn.innerText = "Play";
-    //   }
+    scrubBar.addEventListener("input", () => {
+      // Only pause if it was playing before scrubbing
+      if (!paused && !isScrubbing) {
+        wasPlayingBeforeScrub = true;
+        paused = true;
+      }
 
-    //   isScrubbing = true; // Start scrubbing
-    //   clearTimeout(animationTimeout); // Stop any current animation
+      isScrubbing = true; // Start scrubbing
+      clearTimeout(animationTimeout); // Stop any current animation
 
-    //   const newTick = parseInt(scrubBar.value);
-    //   console.log(newTick);
-    //   seekToDemoTime(newTick);
-    //   tickStore.currentRound = getRoundInfo(tickStore.currentTick);
+      const newTick = parseInt(scrubBar.value);
+      seekToDemoTime(newTick);
+      tickStore.currentRound = getRoundInfo(tickStore.currentTick);
 
-    //   tick = getTickData(tickStore.currentTick);
-    //   tickStore.currentDemoTick = tick.demoTick;
-    //   if (tick == null) {
-    //     console.warn("Skipping tick", tickStore.currentTick, "due to missing data - likely due to demo inconsistencies.");
-    //   } else {
-    //     drawTick(tick, mapImg); // Just render the frame without resuming playback
-    //   }
+      tick = getTickData(tickStore.currentTick);
+      tickStore.currentDemoTick = tick.demoTick;
+      if (tick == null) {
+        console.warn("Skipping tick", tickStore.currentTick, "due to missing data - likely due to demo inconsistencies.");
+      } else {
+        drawTick(tick, mainMapImg, lowerMapImg); // Just render the frame without resuming playback
+      }
 
-    //   roundSelect.value = tickStore.currentRound.roundNumber;
-    // });
+      // roundSelect.value = tickStore.currentRound.roundNumber;
+    });
 
-    // scrubBar.addEventListener("change", () => {
-    //   isScrubbing = false; // End scrubbing
+    scrubBar.addEventListener("change", () => {
+      isScrubbing = false; // End scrubbing
 
-    //   // If it was playing before scrubbing, resume playback
-    //   paused = !wasPlayingBeforeScrub;
-    //   playPauseBtn.innerText = paused ? "Play" : "Pause";
+      // If it was playing before scrubbing, resume playback
+      paused = !wasPlayingBeforeScrub;
+      // playPauseBtn.innerText = paused ? "Play" : "Pause";
 
-    //   if (!paused) {
-    //     drawFrame(); // Resume playback if it was playing before
-    //   }
-    // });
-
-    // --- Play / Pause Button ---
-    // playPauseBtn.addEventListener("click", () => {
-    //   paused = !paused;
-    //   if (!paused) {
-    //     playPauseBtn.innerText = "Pause";
-    //     drawFrame();
-    //   } else {
-    //     playPauseBtn.innerText = "Play";
-    //     clearTimeout(animationTimeout);
-    //   }
-    // });
+      if (!paused) {
+        drawFrame(); // Resume playback if it was playing before
+      }
+    });
 
     playBtn.addEventListener("click", () => {
       if (paused) {
@@ -699,7 +693,7 @@ async function initDemoReviewPage() {
   };
 
   document.addEventListener("keydown", (e) => {
-    console.log(e.code);
+    debugPanel.querySelector("#lastKeyPressed").innerHTML = e.code;
     if (e.code === "Space") {
       e.preventDefault(); // Prevent page scrolling
       resetView();

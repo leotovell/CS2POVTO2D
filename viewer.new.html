@@ -170,8 +170,19 @@
       }
 
       .control-btn {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .overlay-container {
+        pointer-events: none; /* Allow pointer events to pass through */
+      }
+
+      .overlay-control {
+        pointer-events: auto; /* Reactivate pointer events for just the controls */
       }
     </style></head
   ><!DOCTYPE html>
@@ -203,6 +214,7 @@
           <h5>Left Sidebar</h5>
           <button id="saveDemoBtn" class="btn btn-primary">Save Demo</button>
           <button id="printCurrentTick" class="btn btn-primary">Print Tick</button>
+          <button id="printCurrentTickstore" class="btn btn-primary">Print Tickstore</button>
         </div>
 
         <!-- Main Content Area -->
@@ -213,14 +225,33 @@
             <h1>11:5</h1>
             <h1 id="teamBetaName"></h1>
           </div>
-          <div class="middle-panel d-flex align-items-center justify-content-center">
-            <!-- <h5>Middle Panel (Fills Remaining Space)</h5> -->
-            <!-- <canvas style="width: 100%; height: 100%" id="minimap"></canvas> -->
+          <!-- <div class="middle-panel d-flex align-items-center justify-content-center">
+            <h5>Middle Panel (Fills Remaining Space)</h5>
             <canvas id="minimap" style="width: 100%; height: 100%; display: block"></canvas>
-            <!-- </div> -->
-            <!-- <div class="bottom-panel d-flex align-items-center justify-content-center">
-            <input type="range" max="2500" />
+            <div class="container-fluid psoition-absolute"></div>
           </div> -->
+
+          <div class="middle-panel d-flex align-items-center justify-content-center position-relative">
+            <canvas id="minimap" style="width: 100%; height: 100%; display: block"></canvas>
+
+            <!-- Overlay Container -->
+            <div class="overlay-container position-absolute top-0 start-0 w-100 h-100">
+              <!-- Top-right control -->
+              <div class="position-absolute top-0 end-0 m-3 overlay-control d-flex flex-column badge bg-dark">
+                <span><span id="teamAlphaScore">12</span>&nbsp;:&nbsp;<span id="teamBetaScore">9</span></span>
+                <span>Round Timer</span>
+                <div class="container-fluid"><span id="roundTimeMinutes"></span><span>:</span><span id="roundTimeSeconds"></span></div>
+              </div>
+
+              <!-- Bottom-right control -->
+              <div class="position-absolute bottom-0 end-0 m-3 overlay-control">
+                <select class="form-select form-select-sm w-auto">
+                  <option>Speed x1</option>
+                  <option>Speed x2</option>
+                  <option>Speed x3</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div class="bottom-panel px-3 py-2">
@@ -229,8 +260,8 @@
               <div class="row h-50">
                 <!-- FF/Rewind buttons -->
                 <div class="col-1 d-flex align-items-center justify-content-center gap-2">
-                  <button class="btn btn-outline-light control-btn"><i class="bi bi-skip-backward-fill"></i></button>
-                  <button class="btn btn-outline-light control-btn"><i class="bi bi-skip-forward-fill"></i></button>
+                  <button class="btn btn-outline-light control-btn d-flex justify-content-center align-items-center"><i class="bi bi-skip-backward-fill"></i></button>
+                  <button class="btn btn-outline-light control-btn d-flex justify-content-center align-items-center"><i class="bi bi-skip-forward-fill"></i></button>
                 </div>
                 <!-- Event icons -->
                 <div class="col d-flex align-items-center justify-content-between px-3" id="eventIconsContainer">
@@ -245,8 +276,8 @@
               <div class="row h-50">
                 <!-- Play/Pause buttons -->
                 <div class="col-1 d-flex align-items-center justify-content-center gap-2">
-                  <button class="btn btn-outline-success control-btn" id="play-btn"><i class="bi bi-play-fill"></i></button>
-                  <button class="btn btn-outline-danger control-btn" id="pause-btn"><i class="bi bi-pause-fill"></i></button>
+                  <button class="btn btn-outline-success control-btn d-flex justify-content-center align-items-center active" id="play-btn"><i class="bi bi-play-fill"></i></button>
+                  <button class="btn btn-outline-danger control-btn d-flex justify-content-center align-items-center" id="pause-btn"><i class="bi bi-pause-fill"></i></button>
                 </div>
                 <!-- Timeline and Markers -->
                 <div class="col d-flex align-items-center">
@@ -273,6 +304,7 @@
         </div>
 
         <div class="container fluid"><span>Tick: </span> <span id="currentTick"></span></div>
+        <div class="container fluid"><span>Last Key: </span> <span id="lastKeyPressed"></span></div>
       </div>
 
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -314,45 +346,6 @@
 
           marker.appendChild(svg);
         });
-
-        // const canvas = document.getElementById("minimap");
-        // canvas.width = canvas.offsetWidth;
-        // canvas.height = canvas.offsetHeight;
-
-        // const canvas = document.getElementById("minimap");
-        // const ctx = canvas.getContext("2d");
-
-        // // Set internal resolution
-        // const BASE_RES = 1024;
-        // canvas.width = BASE_RES;
-        // canvas.height = BASE_RES;
-
-        // // Optional: scale for high-DPI screens (retina)
-        // const scale = window.devicePixelRatio || 1;
-        // canvas.width = BASE_RES * scale;
-        // canvas.height = BASE_RES * scale;
-        // canvas.style.width = BASE_RES + "px";
-        // canvas.style.height = BASE_RES + "px";
-        // ctx.scale(scale, scale);
-
-        // const canvas = document.getElementById("minimap");
-        // const ctx = canvas.getContext("2d");
-
-        // // Function to resize canvas to its display size (in CSS pixels)
-        // function resizeCanvas() {
-        //   const rect = canvas.getBoundingClientRect(); // get the rendered size
-        //   const scale = window.devicePixelRatio || 1;
-
-        //   canvas.width = rect.width * scale; // set actual canvas resolution
-        //   canvas.height = rect.height * scale;
-
-        //   ctx.setTransform(1, 0, 0, 1, 0, 0); // reset any transforms
-        //   ctx.scale(scale, scale); // upscale drawings for high DPI
-        // }
-
-        // // Resize on load and when window resizes
-        // window.addEventListener("resize", resizeCanvas);
-        // resizeCanvas(); // Initial call
 
         const canvas = document.getElementById("minimap");
         const ctx = canvas.getContext("2d");

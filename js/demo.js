@@ -7,7 +7,7 @@ const roundTimeMins = document.getElementById("roundTimeMinutes");
 const roundTimeSecs = document.getElementById("roundTimeSeconds");
 const backgroundDiv = document.getElementById("scrubBarBackground");
 const currentTickSpan = document.getElementById("currentTick");
-const scrubBar = document.getElementById("scrubBar");
+const scrubBar = document.getElementById("timeline-range");
 const roundSelect = document.getElementById("roundSelect");
 const teamAlphaNameSpan = document.getElementById("teamAlphaName");
 const teamAlphaScoreSpan = document.getElementById("teamAlphaScore");
@@ -97,7 +97,7 @@ const teamBName = localStorage.getItem("teamBName");
 export function updateRoundInfo() {
   let round = tickStore.currentRound;
 
-  roundSelect.value = round.roundNumber;
+  // roundSelect.value = round.roundNumber;
 
   let roundTimeM = "1";
   let roundTimeS = "55";
@@ -233,12 +233,8 @@ export function worldToMap(x, y, z, map) {
     const lowerAspectRatio = map.lower_src_height / map.lower_src_width;
     const lowerBaseHeight = lowerBaseWidth * lowerAspectRatio;
 
-    console.log(lowerBaseWidth, lowerBaseHeight, lowerAspectRatio);
-
     const drawX = (imgX - map.lower_src_x) * (lowerBaseWidth / map.lower_src_width) + lowerDrawX;
     const drawY = (imgY - map.lower_src_y) * (lowerBaseHeight / map.lower_src_height) + lowerDrawY;
-
-    console.log(drawX, drawY);
 
     return [drawX, drawY];
   }
@@ -344,7 +340,7 @@ let lowerMapDrawn = {
 };
 
 export function drawTick(tick, mainMapImg, lowerMapImg) {
-  // updateRoundInfo();
+  updateRoundInfo();
 
   currentTickSpan.innerHTML = tickStore.currentTick + " of " + tickStore.maxTick;
 
@@ -368,12 +364,8 @@ export function drawTick(tick, mainMapImg, lowerMapImg) {
     const lowerAspectRatio = map.lower_src_height / map.lower_src_width;
     const lowerBaseHeight = lowerBaseWidth * lowerAspectRatio;
 
-    lowerMapDrawn = {
-      y: 70,
-      x: 0,
-      width: lowerBaseWidth,
-      height: lowerBaseHeight,
-    };
+    lowerDrawX = 70;
+    lowerDrawY = 0;
 
     ctx.drawImage(lowerMapImg, map.lower_src_x, map.lower_src_y, map.lower_src_width, map.lower_src_height, 70, 0, lowerBaseWidth, lowerBaseHeight);
   }
@@ -399,8 +391,8 @@ export function drawTick(tick, mainMapImg, lowerMapImg) {
       }
     }
 
-    // scrubBar.max = tickStore.maxTick;
-    // scrubBar.value = tickStore.currentTick;
+    scrubBar.max = tickStore.currentRound.officiallyEndedTick - tickStore.currentRound.startTick;
+    scrubBar.value = tickStore.currentDemoTick - tickStore.currentRound.startTick;
   } else {
     // MULTIROUND MODE - OVERLAYED ALL ROUNDS SPECIFIED
 
@@ -437,7 +429,7 @@ export function drawTick(tick, mainMapImg, lowerMapImg) {
     });
 
     // Finally update the scrub-bar, and incrememnt the master tick
-    // scrubBar.max = longestRoundTicks;
-    // scrubBar.value = tickStore.multiRoundMasterTick;
+    scrubBar.max = longestRoundTicks;
+    scrubBar.value = tickStore.multiRoundMasterTick;
   }
 }
