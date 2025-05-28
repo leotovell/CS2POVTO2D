@@ -1,6 +1,7 @@
 // write the UI updating stuff here (NOT THE CANVAS UPDATES);
 
-import { CTColor, settings, settingsToConfigure, TColor, teamAPlayers, tickStore } from "../renderer.js";
+import { CTColor, settings, settingsToConfigure, svgCache, TColor, teamAPlayers, tickStore } from "../renderer.js";
+import { getVirtualTickFromDemoTick, seekToDemoTime } from "./demo.js";
 // import bombSVG from "../img/logo/bomb.svg";
 
 // export as required
@@ -73,6 +74,55 @@ function isTeamAOnCTSide(roundNumber) {
 
   // In overtime: Team A is CT in 1st half of OT1, T in 2nd half of OT1, and it alternates every half
   return (otHalf % 2 === 0 && isFirstHalf) || (otHalf % 2 === 1 && !isFirstHalf);
+}
+
+// Preload SVGs
+// export async function preloadSVG(key, url) {
+//   const res = await fetch(url);
+//   const svgText = await res.text();
+//   svgCache[key] = svgText;
+// }
+
+// export function generateSVG(container, key) {
+//   if (svgCache[key]) {
+//     container.innerHTML = svgCache[key];
+//   } else {
+//     console.error("SVG not preloaded:", key);
+//   }
+// }
+
+// Preload the entire SVG as text and cache it
+export async function preloadSVG(key, url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch SVG: ${res.statusText}`);
+
+    const svgText = await res.text();
+    svgCache[key] = svgText;
+  } catch (err) {
+    console.error(`Error preloading SVG (${key}):`, err);
+  }
+}
+
+// Parse cached SVG text into an SVGElement and return it
+export function generateSVG(key) {
+  const svgText = svgCache[key];
+  if (!svgText) {
+    console.error("SVG not preloaded or missing:", key);
+    return null;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, "image/svg+xml");
+  const svgElement = doc.querySelector("svg");
+
+  if (!svgElement) {
+    console.error("No <svg> element found in cached SVG for key:", key);
+    return null;
+  }
+
+  // Return a cloned node so you can insert it multiple times if needed
+  return svgElement.cloneNode(true);
 }
 
 function updateMultiRoundsList(element) {
@@ -532,23 +582,101 @@ export function updateEventTimeline(round) {
       markersContainer.appendChild(marker);
 
       // event icons
-      const svg = document.createElement("svg");
-      svg.style.transform = "translate(-48%, -130%)";
-      svg.style.position = "absolute";
-      svg.className = "event-icon";
+      let svg;
+
+      if (event.event == "kill") {
+        let teamAIsCT = isTeamAOnCTSide(tickStore.currentRound.roundNumber);
+        let attackerSide;
+        if (teamAPlayers.includes(event.attacker)) {
+          attackerSide = teamAIsCT ? "CT" : "T";
+        } else {
+          attackerSide = teamAIsCT ? "T" : "CT";
+        }
+
+        svg = generateSVG("focus-icon");
+
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "32px";
+        svg.style.height = "32px";
+        svg.removeAttribute("fill");
+        svg.style.color = attackerSide == "T" ? TColor : CTColor;
+      }
+
+      if (event.event == "freeze_end") {
+        svg = generateSVG("play-circle-icon");
+
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "32px";
+        svg.style.height = "32px";
+        svg.removeAttribute("fill");
+        svg.style.fill = "white";
+      }
+
+      if (event.event == "round_won" && event.reason == "time_ran_out") {
+        svg = generateSVG("clock-icon");
+
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "32px";
+        svg.style.height = "32px";
+        svg.removeAttribute("fill");
+        let winnerWasTeamA = event.winner == 2;
+        if (winnerWasTeamA) {
+          svg.style.fill = isTeamAOnCTSide(tickStore.currentRound.roundNumber) ? CTColor : TColor;
+        } else {
+          svg.style.fill = isTeamAOnCTSide(tickStore.currentRound.roundNumber) ? TColor : CTColor;
+        }
+      }
+
+      if (event.event == "round_won" && (event.reason == "t_killed" || event.reason == "ct_killed")) {
+        svg = generateSVG("elimination-icon");
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "32px";
+        svg.style.height = "32px";
+        svg.removeAttribute("fill");
+
+        let winnerWasTeamA = event.winner == 2;
+        if (winnerWasTeamA) {
+          svg.style.fill = isTeamAOnCTSide(tickStore.currentRound.roundNumber) ? CTColor : TColor;
+        } else {
+          svg.style.fill = isTeamAOnCTSide(tickStore.currentRound.roundNumber) ? TColor : CTColor;
+        }
+      }
+
+      if (event.event == "round_won" && event.reason == "bomb_defused") {
+        svg = generateSVG("defuser-icon");
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "32px";
+        svg.style.height = "32px";
+        svg.removeAttribute("fill");
+        svg.style.fill = CTColor;
+      }
+
+      if (event.event == "round_won" && event.reason == "bomb_exploded") {
+        svg = generateSVG("explosion-icon");
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "32px";
+        svg.style.height = "32px";
+        svg.removeAttribute("fill");
+        svg.style.fill = TColor;
+      }
 
       // get and insert the svg code
-      fetch("img/game_icons/elimination-icon.svg")
-        .then((res) => res.text())
-        .then((data) => {
-          svg.innerHTML = data;
-          svg.removeAttribute("width");
-          svg.removeAttribute("height");
-          svg.style.width = "32px";
-          svg.style.height = "32px";
-          svg.removeAttribute("fill");
-          svg.style.fill = "orange";
-        });
+
+      svg.style.transform = "translate(-48%, -130%)";
+      svg.style.position = "absolute";
+      svg.setAttribute("class", "event-icon");
+
+      svg.addEventListener("click", () => {
+        // Calcaulte the virtual tick this occured - 64 ticks (one second before)
+        let vTick = getVirtualTickFromDemoTick(event.tick);
+        seekToDemoTime(parseInt(vTick) - 64);
+      });
 
       marker.appendChild(svg);
     });
@@ -602,24 +730,20 @@ export function updateKillFeed() {
           killContainer.id = `#KILLFEED_ROUND${currentRound.roundNumber}_${kill.attacker}-${kill.player}`;
           killContainer.className = "badge bg-dark";
           // Pre-props
+
           if (kill.attackerProps.includes("blind")) {
             // Load the blind svg
-            let blindSVG = document.createElement("svg");
-            fetch(".img/game_icons/blind-icon.svg")
-              .then((res) => res.text())
-              .then((data) => {
-                blindSVG.innerHTML = data;
+            let blindSVG = generateSVG("blind-icon");
 
-                const svgElement = blindSVG.querySelector("svg");
+            // const svgElement = blindSVG.querySelector("svg");
 
-                svgElement.removeAttribute("width");
-                svgElement.removeAttribute("height");
-                // svgElement.style.width = "25px";
-                svgElement.style.height = "25px";
+            blindSVG.removeAttribute("width");
+            blindSVG.removeAttribute("height");
+            blindSVG.style.height = "25px";
 
-                // svgElement.removeAttribute("fill");
-                // svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
-              });
+            blindSVG.removeAttribute("fill");
+            blindSVG.style.fill = "white";
+
             killContainer.append(blindSVG);
           }
 
@@ -627,47 +751,91 @@ export function updateKillFeed() {
           let attackerNameSpan = document.createElement("span");
           attackerNameSpan.innerHTML = kill.attacker;
           attackerNameSpan.style.color = attackerSide == "T" ? TColor : CTColor;
+          attackerNameSpan.style.paddingRight = "3%";
           killContainer.append(attackerNameSpan);
 
+          // Was jumping?
+          if (kill.attackerProps.includes("jumping")) {
+            let svg = generateSVG("airborne-kill-icon");
+
+            svg.removeAttribute("width");
+            svg.removeAttribute("height");
+            svg.style.height = "25px";
+            svg.style.transform = "translate(25%, -45%)";
+
+            svg.removeAttribute("fill");
+            svg.style.fill = "white";
+            killContainer.append(svg);
+          }
+
           // Weapon
-          let weaponSVG = document.createElement("svg");
-          fetch(`./img/game_icons/weapons/${kill.weapon}-icon.svg`)
-            .then((res) => res.text())
-            .then((data) => {
-              weaponSVG.innerHTML = data;
+          let weaponSVG = generateSVG(`${kill.weapon}-icon`);
 
-              const svgElement = weaponSVG.querySelector("svg");
+          weaponSVG.removeAttribute("width");
+          weaponSVG.removeAttribute("height");
+          weaponSVG.style.height = "25px";
 
-              svgElement.removeAttribute("width");
-              svgElement.removeAttribute("height");
-              // svgElement.style.width = "25px";
-              svgElement.style.height = "25px";
-
-              svgElement.removeAttribute("fill");
-              svgElement.style.fill = "white";
-            });
+          weaponSVG.removeAttribute("fill");
+          weaponSVG.style.fill = "white";
 
           killContainer.append(weaponSVG);
 
           // Other props
+
+          if (kill.attackerProps.includes("noscope")) {
+            let svg = generateSVG("noscope-icon");
+
+            svg.removeAttribute("width");
+            svg.removeAttribute("height");
+
+            svg.style.height = "25px";
+
+            svg.removeAttribute("fill");
+            svg.style.fill = "white";
+
+            killContainer.append(svg);
+          }
+
+          if (kill.attackerProps.includes("smoke")) {
+            let svg = generateSVG("through-smoke-kill-icon");
+
+            svg.removeAttribute("width");
+            svg.removeAttribute("height");
+
+            svg.style.height = "25px";
+
+            svg.removeAttribute("fill");
+            svg.style.fill = "white";
+
+            killContainer.append(svg);
+          }
+
+          if (kill.attackerProps.includes("wallbang")) {
+            let svg = generateSVG("penetrate-icon");
+
+            svg.removeAttribute("width");
+            svg.removeAttribute("height");
+
+            svg.style.height = "25px";
+
+            svg.removeAttribute("fill");
+            svg.style.fill = "white";
+
+            killContainer.append(svg);
+          }
+
           if (kill.attackerProps.includes("hs")) {
-            let hsSVG = document.createElement("svg");
-            fetch("img/game_icons/headshot-icon.svg")
-              .then((res) => res.text())
-              .then((data) => {
-                hsSVG.innerHTML = data;
+            let svg = generateSVG("headshot-icon");
 
-                const svgElement = hsSVG.querySelector("svg");
+            svg.removeAttribute("width");
+            svg.removeAttribute("height");
 
-                svgElement.removeAttribute("width");
-                svgElement.removeAttribute("height");
-                // svgElement.style.width = "25px";
-                svgElement.style.height = "25px";
+            svg.style.height = "25px";
 
-                svgElement.removeAttribute("fill");
-                svgElement.style.fill = "white";
-              });
-            killContainer.append(hsSVG);
+            svg.removeAttribute("fill");
+            svg.style.fill = "white";
+
+            killContainer.append(svg);
           }
 
           // Player name span (died)
@@ -693,4 +861,99 @@ export function updateKillFeed() {
 
   // Determine attacker side:
   // let attackerSide = teamAPlayers.includes()
+}
+
+/**
+ *
+ * @author Leo Tovell
+ *
+ * @export
+ */
+export function generateRoundList(rounds) {
+  const roundContainer = document.getElementById("roundSidebar");
+
+  // For each round
+
+  rounds.forEach((round) => {
+    const teamAIsCT = isTeamAOnCTSide(round.roundNumber);
+
+    // Generate the round div
+    const container = document.createElement("div");
+    container.className = "container-fluid round row";
+
+    const leftContainer = document.createElement("div");
+    leftContainer.className = "col-2";
+    leftContainer.innerHTML = `<h1>${round.roundNumber}</h1>`;
+    let winConditionSVG;
+    if (round.winReason == "time_ran_out") winConditionSVG = generateSVG("clock-icon");
+    else if (round.winReason == "ct_killed" || round.winReason == "t_killed") winConditionSVG = generateSVG("elimination-icon");
+    else if (round.winReason == "bomb_exploded") winConditionSVG = generateSVG("explosion-icon");
+    else if (round.winReason == "bomb_defused") winConditionSVG = generateSVG("defuser-icon");
+    winConditionSVG.style.height = "auto";
+    winConditionSVG.style.width = "auto";
+    winConditionSVG.style.color = "white";
+    winConditionSVG.style.fill = "white";
+    leftContainer.appendChild(winConditionSVG);
+
+    const middleContainer = document.createElement("div");
+    middleContainer.className = "col d-flex";
+    middleContainer.id = "playersAliveDiv";
+
+    // Calculate Players Alive on team A and team B:
+    let teamAPlayersAliveCount = 5;
+    let teamBPlayersAliveCount = 5;
+
+    round.kills.forEach((kill) => {
+      if (teamAPlayers.includes(kill.player)) {
+        teamAPlayersAliveCount--;
+      } else {
+        teamBPlayersAliveCount--;
+      }
+    });
+
+    const teamAPlayersAlive = document.createElement("div");
+    teamAPlayersAlive.className = "col";
+    teamAPlayersAlive.innerHTML = "I".repeat(teamAPlayersAliveCount);
+    teamAPlayersAlive.style.color = teamAIsCT ? CTColor : TColor;
+
+    const divider = document.createElement("div");
+    divider.innerHTML = "&nbsp;|&nbsp;";
+
+    const teamBPlayersAlive = document.createElement("div");
+    teamBPlayersAlive.className = "col";
+    teamBPlayersAlive.innerHTML = "I".repeat(teamBPlayersAliveCount);
+    teamBPlayersAlive.style.color = teamAIsCT ? TColor : CTColor;
+
+    middleContainer.appendChild(teamAPlayersAlive);
+    middleContainer.appendChild(divider);
+    middleContainer.appendChild(teamBPlayersAlive);
+
+    const rightContainer = document.createElement("div");
+    rightContainer.className = "col-2";
+
+    // What side is team A?
+    let teamAScore = document.createElement("h1");
+    teamAScore.innerHTML = round.afterScoreA;
+    teamAScore.style.color = teamAIsCT ? CTColor : TColor;
+
+    const scoreColon = document.createElement("h1");
+    scoreColon.innerHTML = ":";
+
+    let teamBScore = document.createElement("h1");
+    teamBScore.innerHTML = round.afterScoreB;
+    teamBScore.style.color = teamAIsCT ? TColor : CTColor;
+    rightContainer.appendChild(teamAScore);
+    rightContainer.appendChild(scoreColon);
+    rightContainer.appendChild(teamBScore);
+
+    container.appendChild(leftContainer);
+    container.appendChild(middleContainer);
+    container.appendChild(rightContainer);
+
+    container.onclick = () => {
+      seekToDemoTime(getVirtualTickFromDemoTick(round.startTick));
+    };
+
+    roundContainer.appendChild(container);
+  });
 }

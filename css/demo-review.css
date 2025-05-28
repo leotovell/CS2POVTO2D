@@ -1,3 +1,11 @@
+:root {
+  --input-width: 80%;
+  --body-color: #101723;
+  --panel-color: #223149;
+  --ct-color: #4ea5f7;
+  --t-color: #f79b4e;
+}
+
 .draggable-panel {
   position: absolute;
   top: 100px;
@@ -185,13 +193,228 @@
   height: 32px;
   position: absolute;
   transform: translate(-48%, -130%);
-  transition: all linear 0.5s;
+  /* transition: all linear 0.5s; */
+  transition: filter 0.3s ease, transform 0.3s ease;
+  pointer-events: auto;
+  z-index: 15;
 }
 
 .event-icon:hover {
-  color: white;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
+  transform: scale(1.1); /* optional for a subtle grow effect */
+  cursor: pointer;
 }
 
 #killfeed div {
   font-size: large;
+  align-self: flex-end;
+  width: auto;
+}
+
+.round {
+  height: 7%;
+  background-color: var(--body-color);
+  border-radius: 10px;
+  transition: box-shadow 0.3s ease-in-out;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.round-bar {
+  gap: 7px;
+}
+
+.round:hover {
+  box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+}
+
+.round div {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.round div h1 {
+  margin: 0;
+}
+
+#playersAliveDiv {
+  font-size: x-large;
+}
+
+#playersAliveDiv div:first-child {
+  justify-content: end;
+}
+
+#playersAliveDiv div:last-child {
+  justify-content: start;
+}
+
+body,
+html {
+  height: 100%;
+  margin: 0;
+  background-color: var(--body-color);
+  color: white;
+}
+
+.sidebar,
+.top-panel,
+.middle-panel,
+.bottom-panel {
+  background-color: var(--panel-color);
+  /* box-shadow: inset 0 0 0 1px white; */
+  border-radius: 10px;
+}
+
+.sidebar {
+  width: 18vw;
+  min-width: 150px;
+  margin: 1vh;
+}
+
+.main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-panel,
+.bottom-panel {
+  height: 10vh;
+  margin-top: 1vh;
+  margin-bottom: 1vh;
+}
+
+.middle-panel {
+  flex-grow: 1;
+  overflow: auto;
+}
+
+input[type="range"] {
+  margin: auto;
+  -webkit-appearance: none;
+  position: relative;
+  overflow: hidden;
+  height: 40px;
+  width: var(--input-width);
+  cursor: pointer;
+  border-radius: 10px; /* iOS */
+}
+
+::-webkit-slider-runnable-track {
+  background: var(--body-color);
+}
+
+/*
+ * 1. Set to 0 width and remove border for a slider without a thumb
+ * 2. Shadow is negative the full width of the input and has a spread 
+ *    of the width of the input.
+ */
+::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0px; /* 1 */
+  height: 40px;
+  background: var(--body-color);
+  box-shadow: -5000px 0 0 5000px #304569; /* 2 */
+  /* box-shadow: calc(-1 * var(--input-width)) 0 0 var(--input-width) dodgerblue; 2 */
+  border: 2px solid #999; /* 1 */
+}
+
+::-moz-range-track {
+  height: 40px;
+  background: #ddd;
+}
+
+::-moz-range-thumb {
+  background: var(--body-color);
+  height: 40px;
+  width: 0px; /* 1 */
+  border: 0px solid #999; /* 1 */
+  border-radius: 0 !important;
+  box-shadow: -200px 0 0 200px dodgerblue;
+  box-sizing: border-box;
+}
+
+::-ms-fill-lower {
+  background: dodgerblue;
+}
+
+::-ms-thumb {
+  background: #304569;
+  border: 0px solid #304569; /* 1 */
+  height: 40px;
+  width: 0px; /* 1 */
+  box-sizing: border-box;
+}
+
+::-ms-ticks-after {
+  display: none;
+}
+
+::-ms-ticks-before {
+  display: none;
+}
+
+::-ms-track {
+  background: #ddd;
+  color: transparent;
+  height: 40px;
+  border: none;
+}
+
+::-ms-tooltip {
+  display: none;
+}
+
+.bottom-panel {
+  height: 10vh;
+}
+
+.timeline-range-wrapper {
+  height: 40px;
+  position: relative;
+}
+
+input[type="range"] {
+  height: 40px;
+  width: 100%;
+  cursor: pointer;
+}
+
+#event-markers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.event-marker {
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background-color: red;
+  transform: translateX(-1px);
+  opacity: 0.9;
+}
+
+.control-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.overlay-container {
+  pointer-events: none; /* Allow pointer events to pass through */
+}
+
+.overlay-control {
+  pointer-events: auto; /* Reactivate pointer events for just the controls */
 }

@@ -3,7 +3,7 @@ import * as nodePath from "node:path";
 import { readFileSync, writeFile } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
-import { cleanDemoData, debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
+import { previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
 import { Worker } from "worker_threads";
 import express from "express";
 import { Readable } from "node:stream";

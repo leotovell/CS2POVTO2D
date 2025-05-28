@@ -30,98 +30,98 @@ export function previewDemo(demoBuffer) {
   };
 }
 
-export function cleanDemoData(data) {
-  const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, tick_data } = data;
+// export function cleanDemoData(data) {
+//   const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, tick_data } = data;
 
-  console.log(`Initial round_start_events count: ${round_start_events.length}`);
+//   console.log(`Initial round_start_events count: ${round_start_events.length}`);
 
-  const updatedRoundStarts = [];
-  let removedRanges = []; // {start, end, shift}
-  let totalTickShift = 0;
+//   const updatedRoundStarts = [];
+//   let removedRanges = []; // {start, end, shift}
+//   let totalTickShift = 0;
 
-  // Go through round_start_events and track duplicate rounds
-  for (let i = 0; i < round_start_events.length; i++) {
-    const current = round_start_events[i];
-    const next = round_start_events[i + 1];
+//   // Go through round_start_events and track duplicate rounds
+//   for (let i = 0; i < round_start_events.length; i++) {
+//     const current = round_start_events[i];
+//     const next = round_start_events[i + 1];
 
-    if (next && current.round === next.round) {
-      const removedTickCount = next.tick - current.tick;
-      console.log(`Duplicate round ${current.round} detected at ticks ${current.tick} and ${next.tick} - removing earlier`);
+//     if (next && current.round === next.round) {
+//       const removedTickCount = next.tick - current.tick;
+//       console.log(`Duplicate round ${current.round} detected at ticks ${current.tick} and ${next.tick} - removing earlier`);
 
-      removedRanges.push({
-        start: current.tick,
-        end: next.tick,
-        shift: removedTickCount,
-      });
+//       removedRanges.push({
+//         start: current.tick,
+//         end: next.tick,
+//         shift: removedTickCount,
+//       });
 
-      // Move the next round back
-      next.tick = current.tick;
-      totalTickShift += removedTickCount;
-      continue;
-    }
+//       // Move the next round back
+//       next.tick = current.tick;
+//       totalTickShift += removedTickCount;
+//       continue;
+//     }
 
-    const adjustedTick = current.tick - totalTickShift;
-    updatedRoundStarts.push({
-      ...current,
-      tick: adjustedTick,
-    });
-  }
+//     const adjustedTick = current.tick - totalTickShift;
+//     updatedRoundStarts.push({
+//       ...current,
+//       tick: adjustedTick,
+//     });
+//   }
 
-  console.log(`Removed ranges:`, removedRanges);
-  console.log(`Final round_start_events count: ${updatedRoundStarts.length}`);
+//   console.log(`Removed ranges:`, removedRanges);
+//   console.log(`Final round_start_events count: ${updatedRoundStarts.length}`);
 
-  // Function to calculate adjusted tick
-  function shiftTick(tick) {
-    let totalShift = 0;
-    for (const { start, end, shift } of removedRanges) {
-      if (tick >= end) {
-        totalShift += shift;
-      }
-    }
-    return tick - totalShift;
-  }
+//   // Function to calculate adjusted tick
+//   function shiftTick(tick) {
+//     let totalShift = 0;
+//     for (const { start, end, shift } of removedRanges) {
+//       if (tick >= end) {
+//         totalShift += shift;
+//       }
+//     }
+//     return tick - totalShift;
+//   }
 
-  // General event adjustment helper
-  function adjustEvents(events, label) {
-    const before = events.length;
-    const filtered = events.filter((e) => !removedRanges.some(({ start, end }) => e.tick >= start && e.tick < end)).map((e) => ({ ...e, tick: shiftTick(e.tick) }));
-    const after = filtered.length;
+//   // General event adjustment helper
+//   function adjustEvents(events, label) {
+//     const before = events.length;
+//     const filtered = events.filter((e) => !removedRanges.some(({ start, end }) => e.tick >= start && e.tick < end)).map((e) => ({ ...e, tick: shiftTick(e.tick) }));
+//     const after = filtered.length;
 
-    console.log(`Adjusted ${label}: ${before} -> ${after}`);
-    return filtered;
-  }
+//     console.log(`Adjusted ${label}: ${before} -> ${after}`);
+//     return filtered;
+//   }
 
-  const adjustedFreezeEnds = adjustEvents(round_freeze_end_events, "freeze_end_events");
-  const adjustedRoundEnds = adjustEvents(round_end_events, "round_end_events");
-  const adjustedOfficialEnds = adjustEvents(round_officially_ended_events, "round_officially_ended_events");
+//   const adjustedFreezeEnds = adjustEvents(round_freeze_end_events, "freeze_end_events");
+//   const adjustedRoundEnds = adjustEvents(round_end_events, "round_end_events");
+//   const adjustedOfficialEnds = adjustEvents(round_officially_ended_events, "round_officially_ended_events");
 
-  // Adjust tick data
-  const adjustedTickData = {};
-  let ticksRemoved = 0;
-  let ticksKept = 0;
-  for (const tickStr in tick_data) {
-    const tick = parseInt(tickStr);
-    const inRemoved = removedRanges.some(({ start, end }) => tick >= start && tick < end);
-    if (inRemoved) {
-      ticksRemoved++;
-      continue;
-    }
+//   // Adjust tick data
+//   const adjustedTickData = {};
+//   let ticksRemoved = 0;
+//   let ticksKept = 0;
+//   for (const tickStr in tick_data) {
+//     const tick = parseInt(tickStr);
+//     const inRemoved = removedRanges.some(({ start, end }) => tick >= start && tick < end);
+//     if (inRemoved) {
+//       ticksRemoved++;
+//       continue;
+//     }
 
-    const newTick = shiftTick(tick);
-    adjustedTickData[newTick] = tick_data[tick];
-    ticksKept++;
-  }
+//     const newTick = shiftTick(tick);
+//     adjustedTickData[newTick] = tick_data[tick];
+//     ticksKept++;
+//   }
 
-  console.log(`Tick data: ${ticksRemoved} ticks removed, ${ticksKept} ticks kept`);
+//   console.log(`Tick data: ${ticksRemoved} ticks removed, ${ticksKept} ticks kept`);
 
-  return {
-    round_start_events: updatedRoundStarts,
-    round_freeze_end_events: adjustedFreezeEnds,
-    round_end_events: adjustedRoundEnds,
-    round_officially_ended_events: adjustedOfficialEnds,
-    tick_data: adjustedTickData,
-  };
-}
+//   return {
+//     round_start_events: updatedRoundStarts,
+//     round_freeze_end_events: adjustedFreezeEnds,
+//     round_end_events: adjustedRoundEnds,
+//     round_officially_ended_events: adjustedOfficialEnds,
+//     tick_data: adjustedTickData,
+//   };
+// }
 
 /**
  * A handy helper function to get a list of events from the demo (always more efficient than individual calls to `parseEvent()`)
@@ -250,7 +250,7 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
     let eventsForTimeline = [];
     // Freeze_end
     eventsForTimeline.push({
-      tick: startTick,
+      tick: freezeEndTick,
       event: "freeze_end",
     });
 
@@ -334,7 +334,7 @@ export function processGrenades(grenades, rounds) {
 
       // Find the round that contains this tick
       for (const round of rounds) {
-        if (nade.tick >= round.start_tick && nade.tick <= round.end_tick) {
+        if (nade.tick >= round.startTick && nade.tick <= round.officiallyEndedTick) {
           // Ensure the tick exists in this round (you only stored populated ticks)
           const tickData = round.ticks[nade.tick];
           if (tickData) {

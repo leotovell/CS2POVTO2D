@@ -304,14 +304,28 @@ export function drawPlayer(player) {
 }
 
 export function drawGrenade(grenade) {
-  const [x, y] = worldToMap(grenade.x, grenade.y);
+  const [x, y] = worldToMap(grenade.x, grenade.y, grenade.z, map);
 
   ctx.beginPath();
-  ctx.arc(x, y, 5, 0, 2 * Math.PI);
-  ctx.fillStyle = "teal";
+  if (grenade.type == "CSmokeGrenadeProjectile") {
+    ctx.arc(x, y, 28, 0, 2 * Math.PI);
+    ctx.fillStyle = "grey";
+  } else {
+    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = "teal";
+  }
   ctx.fill();
 }
 
+/**
+ *
+ * @author Leo Tovell
+ *
+ * @description Takes a (virtual) tick to seek to in the demo. You can get the virtual tick using `getVirtualTickFromDemoTick`
+ *
+ * @export
+ * @param {*} scrubbedTick
+ */
 export function seekToDemoTime(scrubbedTick) {
   if (settings.multiRoundOverlayMode) {
     tickStore.multiRoundMasterTick = scrubbedTick;
@@ -389,18 +403,17 @@ export function drawTick(tick, mainMapImg, lowerMapImg) {
   if (!settings.multiRoundOverlayMode) {
     // If tick exists, draw it's contents.
     if (tick) {
-      if (tick.players) {
-        for (const player of tick.players) {
-          if (!settings.hiddenPlayers.has(player.name)) {
-            drawPlayer(player);
-          }
-        }
-      }
-
       if (tick.grenades) {
         for (const nade of tick.grenades) {
           if (!settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
             drawGrenade(nade);
+          }
+        }
+      }
+      if (tick.players) {
+        for (const player of tick.players) {
+          if (!settings.hiddenPlayers.has(player.name)) {
+            drawPlayer(player);
           }
         }
       }

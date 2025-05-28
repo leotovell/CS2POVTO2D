@@ -1,7 +1,91 @@
 // const { enableLoader, disableLoader } = require("./js/ui");
 import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap, goToRound, constructTickMap, getTickData, getRoundInfo, getVirtualTickFromDemoTick } from "./js/demo.js";
-import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel, setElementInvisible, showFlashMessage } from "./js/ui.js";
+import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel, setElementInvisible, showFlashMessage, preloadSVG, generateRoundList } from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
+
+let game_icons_path = "./img/game_icons/";
+let game_icons = [
+  "airborne-kill-icon",
+  "blind-icon",
+  "bomb-icon",
+  "defuser-icon",
+  "elimination-headshot-icon",
+  "elimination-icon",
+  "explosion-icon",
+  "focus-icon",
+  "headshot-icon",
+  "jump-icon",
+  "noscope-icon",
+  "penetrate-icon",
+  "play-circle-icon",
+  "play-icon",
+  "through-smoke-kill-icon",
+  "clock-icon",
+];
+let weapon_icons_path = "./img/game_icons/weapons/";
+let weapon_icons = [
+  "ak47-icon",
+  "aug-icon",
+  "awp-icon",
+  "bizon-icon",
+  "cz75a-icon",
+  "deagle-icon",
+  "decoy-icon",
+  "dual-elite-icon",
+  "famas-icon",
+  "five-seven-icon",
+  "flashbang-icon",
+  "g3sg1-icon",
+  "galilar-icon",
+  "glock-icon",
+  "he-grenade-icon",
+  "helmet-icon",
+  "incendiary-grenade-icon",
+  "kevlar-icon",
+  "knife-icon",
+  "m249-icon",
+  "m4a1-icon",
+  "m4a1-silencer-off-icon",
+  "m4a4-icon",
+  "mac10-icon",
+  "mag7-icon",
+  "molotov-icon",
+  "mp5sd-icon",
+  "mp7-icon",
+  "mp9-icon",
+  "negev-icon",
+  "nova-icon",
+  "p2000-icon",
+  "p250-icon",
+  "p90-icon",
+  "revolver-icon",
+  "sawed-off-icon",
+  "scar20-icon",
+  "sg553-icon",
+  "smoke-grenade-icon",
+  "ssg08-icon",
+  "tec9-icon",
+  "ump45-icon",
+  "usps-silencer-off-icon",
+  "usp_silencer-icon",
+  "world-icon",
+  "xm1014-icon",
+  "zeus-icon",
+];
+
+// Preload all SVGs in the img folder:
+preloadSVG("blind-icon", "img/game_icons/blind-icon.svg");
+preloadSVG("headshot-icon", "img/game_icons/headshot-icon.svg");
+preloadSVG("elimination-icon", "img/game_icons/elimination-icon.svg");
+preloadSVG("jump-icon", "img/game_icons/jump-icon.svg");
+
+game_icons.forEach(async (icon) => {
+  await preloadSVG(icon, `${game_icons_path}${icon}.svg`);
+});
+
+weapon_icons.forEach(async (icon) => {
+  await preloadSVG(icon, `${weapon_icons_path}${icon}.svg`);
+});
 
 document.addEventListener("DOMContentLoaded", function () {
   const page = document.body.id;
@@ -309,6 +393,8 @@ export let canvasSettings = {
   layers: 1,
 };
 
+export let svgCache = {};
+
 function resizeCanvas() {
   const scale = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -450,8 +536,6 @@ async function initDemoReviewPage() {
     teamBPlayers.push(player.name);
   });
 
-  console.log(map);
-
   constructTickMap(rounds);
 
   // disableLoader(loader);
@@ -463,6 +547,8 @@ async function initDemoReviewPage() {
   // setupPlayerFiltersModal(playerFiltersModal, scoreboard);
   // setupSettingsListeners();
   // setupMultiRoundsPanel(document.getElementById("multi-rounds-list"), rounds);
+
+  generateRoundList(rounds);
 
   // Flags
   const tickrate = 64;
