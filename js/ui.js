@@ -1,6 +1,6 @@
 // write the UI updating stuff here (NOT THE CANVAS UPDATES);
 
-import { settings, settingsToConfigure, tickStore } from "../renderer.js";
+import { CTColor, settings, settingsToConfigure, TColor, teamAPlayers, tickStore } from "../renderer.js";
 // import bombSVG from "../img/logo/bomb.svg";
 
 // export as required
@@ -56,6 +56,25 @@ export function enableElement(element) {
   element.disabled = false;
 }
 
+function isTeamAOnCTSide(roundNumber) {
+  // Regulation rounds
+  if (roundNumber <= 12) {
+    return true; // Team A starts CT
+  }
+  if (roundNumber > 12 && roundNumber <= 24) {
+    return false; // Team A switches to T
+  }
+
+  // Overtime rounds
+  const otRound = roundNumber - 25; // 0-based index
+  const otHalf = Math.floor(otRound / 6); // Which OT half (0 = OT1 first half, 1 = OT1 second half, etc.)
+  const roundInHalf = otRound % 6;
+  const isFirstHalf = roundInHalf < 3;
+
+  // In overtime: Team A is CT in 1st half of OT1, T in 2nd half of OT1, and it alternates every half
+  return (otHalf % 2 === 0 && isFirstHalf) || (otHalf % 2 === 1 && !isFirstHalf);
+}
+
 function updateMultiRoundsList(element) {
   console.log(settings);
   const roundNumToEl = {};
@@ -73,8 +92,6 @@ function updateMultiRoundsList(element) {
 
   for (const round of tickStore.rounds) {
     const rn = round.roundNumber;
-
-    console.log(round.winReason);
 
     let selectedTeamIsCT = false;
 
@@ -278,79 +295,40 @@ export function setupMultiRoundsPanel(element, rounds) {
 
     const winReasonSVG = document.createElement("svg");
 
+    let svgFileName = "";
+
     switch (round.winReason) {
       case "bomb_defused":
-        fetch("./img/logo/bomb_defused.svg")
-          .then((res) => res.text())
-          .then((data) => {
-            winReasonSVG.innerHTML = data;
-
-            const svgElement = winReasonSVG.querySelector("svg");
-
-            svgElement.removeAttribute("width");
-            svgElement.removeAttribute("height");
-            svgElement.style.width = "30px";
-            svgElement.style.height = "30px";
-
-            svgElement.removeAttribute("fill");
-            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
-          });
+        svgFileName = "./img/logo/bomb_defused.svg";
         break;
       case "bomb_exploded":
-        fetch("./img/logo/bomb.svg")
-          .then((res) => res.text())
-          .then((data) => {
-            winReasonSVG.innerHTML = data;
-
-            const svgElement = winReasonSVG.querySelector("svg");
-
-            svgElement.removeAttribute("width");
-            svgElement.removeAttribute("height");
-            svgElement.style.width = "30px";
-            svgElement.style.height = "30px";
-
-            svgElement.removeAttribute("fill");
-            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
-          });
-        break;
+        svgFileName = "./img/logo/bomb.svg";
       case "t_killed":
       case "ct_killed":
-        fetch("./img/logo/killed.svg")
-          .then((res) => res.text())
-          .then((data) => {
-            winReasonSVG.innerHTML = data;
-
-            const svgElement = winReasonSVG.querySelector("svg");
-
-            svgElement.removeAttribute("width");
-            svgElement.removeAttribute("height");
-            svgElement.style.width = "30px";
-            svgElement.style.height = "30px";
-
-            svgElement.removeAttribute("fill");
-            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
-          });
+        svgFileName = "./img/logo/killed.svg";
         break;
       case "time_ran_out":
-        fetch("./img/logo/time_ran_out.svg")
-          .then((res) => res.text())
-          .then((data) => {
-            winReasonSVG.innerHTML = data;
-
-            const svgElement = winReasonSVG.querySelector("svg");
-
-            svgElement.removeAttribute("width");
-            svgElement.removeAttribute("height");
-            svgElement.style.width = "30px";
-            svgElement.style.height = "30px";
-
-            svgElement.removeAttribute("fill");
-            svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
-          });
+        svgFileName = "./img/logo/time_ran_out.svg";
         break;
       default:
         break;
     }
+
+    fetch(svgFileName)
+      .then((res) => res.text())
+      .then((data) => {
+        winReasonSVG.innerHTML = data;
+
+        const svgElement = winReasonSVG.querySelector("svg");
+
+        svgElement.removeAttribute("width");
+        svgElement.removeAttribute("height");
+        svgElement.style.width = "30px";
+        svgElement.style.height = "30px";
+
+        svgElement.removeAttribute("fill");
+        svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+      });
 
     // Add event listener
     roundCheckbox.addEventListener("change", () => {
@@ -507,4 +485,212 @@ export function setupSettingsListeners() {
       });
     }
   });
+}
+
+export function showFlashMessage(msg, type = "error", duration = 7000) {
+  const container = document.getElementById("flash-container");
+
+  const flash = document.createElement("div");
+  flash.className = "flash-message";
+  flash.innerText = msg;
+
+  // Optional: style by type
+  flash.style.background = type === "error" ? "#e74c3c" : "#2ecc71";
+  flash.style.color = "#fff";
+  flash.style.padding = "10px 15px";
+  flash.style.marginTop = "10px";
+  flash.style.borderRadius = "5px";
+  flash.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
+  flash.style.transition = "opacity 0.5s";
+
+  container.appendChild(flash);
+
+  // Automatically remove after delay
+  setTimeout(() => {
+    flash.style.opacity = 0;
+    setTimeout(() => container.removeChild(flash), 500); // Fade out then remove
+  }, duration);
+}
+
+export function updateEventTimeline(round) {
+  if (tickStore.isNewRound) {
+    // Firstly delete any children of "event-markers"
+    const markersContainer = document.getElementById("event-markers");
+
+    markersContainer.innerHTML = ""; // clear
+
+    // const eventIconsContainer = document.getElementById("eventIconsContainer");
+
+    let max = round.length;
+
+    round.timelineEvents.forEach((event) => {
+      let time = event.tick - round.startTick;
+      const left = (time / max) * 100;
+      const marker = document.createElement("div");
+      marker.classList.add("event-marker");
+      marker.style.left = `${left}%`;
+      markersContainer.appendChild(marker);
+
+      // event icons
+      const svg = document.createElement("svg");
+      svg.style.transform = "translate(-48%, -130%)";
+      svg.style.position = "absolute";
+      svg.className = "event-icon";
+
+      // get and insert the svg code
+      fetch("img/game_icons/elimination-icon.svg")
+        .then((res) => res.text())
+        .then((data) => {
+          svg.innerHTML = data;
+          svg.removeAttribute("width");
+          svg.removeAttribute("height");
+          svg.style.width = "32px";
+          svg.style.height = "32px";
+          svg.removeAttribute("fill");
+          svg.style.fill = "orange";
+        });
+
+      marker.appendChild(svg);
+    });
+  }
+}
+
+export function updateKillFeed() {
+  // Look at the current tick in the round, filter all of the kills in the round < this tick. If < 6 seconds (64 * 6) or settings.killFeedDuration value, then display.
+  // To make it pretty we can generate HTML to do it. When the kill has expired we can cause it to fade off by applying a class making it go to display: none; or invisible etc, then delete it start of next round.
+
+  const killFeedDiv = document.getElementById("killfeed");
+
+  let currentTick = tickStore.currentDemoTick;
+  let currentRound = tickStore.currentRound;
+  let kills = tickStore.currentRound.kills;
+
+  // Check which team is on CT side:
+  let teamAIsCT = isTeamAOnCTSide(currentRound.roundNumber);
+
+  kills.forEach((kill) => {
+    let attackerSide;
+    if (teamAPlayers.includes(kill.attacker)) {
+      attackerSide = teamAIsCT ? "CT" : "T";
+    } else {
+      attackerSide = teamAIsCT ? "T" : "CT";
+    }
+
+    let playerSide;
+    if (teamAPlayers.includes(kill.player)) {
+      playerSide = teamAIsCT ? "CT" : "T";
+    } else {
+      playerSide = teamAIsCT ? "T" : "CT";
+    }
+
+    // Firstly has the kill occured?
+    if (kill.tick < currentTick) {
+      // Kill has occured either now or in the past.
+      if (kill.tick < currentTick - settings.killFeedDuration * 64) {
+        // It occured > x seconds ago - if not already - apply the expired class.
+        let element = document.getElementById(`#KILLFEED_ROUND${currentRound.roundNumber}_${kill.attacker}-${kill.player}`);
+        if (element != null) {
+          // Just in-case we have skipped and it was never made!
+          element.style.display = "none";
+        }
+      } else {
+        // It occured within the last x seconds - let's keep displaying it or display it.
+        let element = document.getElementById(`#KILLFEED_ROUND${currentRound.roundNumber}_${kill.attacker}-${kill.player}`);
+
+        if (element == null) {
+          let killContainer = document.createElement("div");
+          killContainer.id = `#KILLFEED_ROUND${currentRound.roundNumber}_${kill.attacker}-${kill.player}`;
+          killContainer.className = "badge bg-dark";
+          // Pre-props
+          if (kill.attackerProps.includes("blind")) {
+            // Load the blind svg
+            let blindSVG = document.createElement("svg");
+            fetch(".img/game_icons/blind-icon.svg")
+              .then((res) => res.text())
+              .then((data) => {
+                blindSVG.innerHTML = data;
+
+                const svgElement = blindSVG.querySelector("svg");
+
+                svgElement.removeAttribute("width");
+                svgElement.removeAttribute("height");
+                // svgElement.style.width = "25px";
+                svgElement.style.height = "25px";
+
+                // svgElement.removeAttribute("fill");
+                // svgElement.style.fill = round.winner == "T" ? "orange" : "blue";
+              });
+            killContainer.append(blindSVG);
+          }
+
+          // Attacker name span
+          let attackerNameSpan = document.createElement("span");
+          attackerNameSpan.innerHTML = kill.attacker;
+          attackerNameSpan.style.color = attackerSide == "T" ? TColor : CTColor;
+          killContainer.append(attackerNameSpan);
+
+          // Weapon
+          let weaponSVG = document.createElement("svg");
+          fetch(`./img/game_icons/weapons/${kill.weapon}-icon.svg`)
+            .then((res) => res.text())
+            .then((data) => {
+              weaponSVG.innerHTML = data;
+
+              const svgElement = weaponSVG.querySelector("svg");
+
+              svgElement.removeAttribute("width");
+              svgElement.removeAttribute("height");
+              // svgElement.style.width = "25px";
+              svgElement.style.height = "25px";
+
+              svgElement.removeAttribute("fill");
+              svgElement.style.fill = "white";
+            });
+
+          killContainer.append(weaponSVG);
+
+          // Other props
+          if (kill.attackerProps.includes("hs")) {
+            let hsSVG = document.createElement("svg");
+            fetch("img/game_icons/headshot-icon.svg")
+              .then((res) => res.text())
+              .then((data) => {
+                hsSVG.innerHTML = data;
+
+                const svgElement = hsSVG.querySelector("svg");
+
+                svgElement.removeAttribute("width");
+                svgElement.removeAttribute("height");
+                // svgElement.style.width = "25px";
+                svgElement.style.height = "25px";
+
+                svgElement.removeAttribute("fill");
+                svgElement.style.fill = "white";
+              });
+            killContainer.append(hsSVG);
+          }
+
+          // Player name span (died)
+          let playerNameSpan = document.createElement("span");
+          playerNameSpan.innerHTML = kill.player;
+          playerNameSpan.style.color = playerSide == "T" ? TColor : CTColor;
+
+          killContainer.append(playerNameSpan);
+
+          killFeedDiv.append(killContainer);
+        } else {
+          element.style.display = "block";
+        }
+      }
+    } else {
+      // Kill is in the future, we need to hide it!
+      let element = document.getElementById(`#KILLFEED_ROUND${currentRound.roundNumber}_${kill.attacker}-${kill.player}`);
+      if (element != null) {
+        element.style.display = "none";
+      }
+    }
+  });
+
+  // Determine attacker side:
+  // let attackerSide = teamAPlayers.includes()
 }

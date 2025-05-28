@@ -146,7 +146,7 @@ export function processEvents(demoBuffer, wanted_events) {
 export function processBasicTicks(demoBuffer, demoRoundEvents) {
   const ticks = debugTime("parseTicks", () => parseTicks(demoBuffer, ["X", "Y", "Z", "team_num", "yaw", "is_alive", "rotation", "inventory"]));
 
-  const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events } = demoRoundEvents;
+  const { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, bomb_dropped_events, bomb_planted_events, bomb_defused_events, bomb_begindefuse_events, player_death_events } = demoRoundEvents;
 
   // Create a map of tick -> { players, grenades }
   const processedTicks = {};
@@ -246,6 +246,62 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
       teamBScore++;
     }
 
+    // Events for the timeline - kills, freeze_end, bomb_plants, bomb_defuse, bomb_explode (win-conditions)
+    let eventsForTimeline = [];
+    // Freeze_end
+    eventsForTimeline.push({
+      tick: startTick,
+      event: "freeze_end",
+    });
+
+    // Kills
+    player_death_events.forEach((ev) => {
+      if (ev.tick > startTick && ev.tick < officiallyEndedTick) {
+        eventsForTimeline.push({
+          tick: ev.tick,
+          event: "kill",
+          attacker: ev.attacker_name,
+          died: ev.user_name,
+        });
+      }
+    });
+
+    // Win Conditions
+    eventsForTimeline.push({
+      tick: endTick,
+      event: "round_won",
+      winner: endEvent.winner,
+      reason: endEvent.reason,
+    });
+
+    // Filter the player_death events to only keep the info we want.
+    const filtered_player_death_events = [];
+    player_death_events.forEach((ev) => {
+      if (ev.tick > startTick && ev.tick < officiallyEndedTick) {
+        const event = {};
+
+        event.tick = ev.tick;
+
+        event.assisted = ev.assister_name != null ? true : false;
+        if (event.assisted) event.assistType = ev.assistedflash == true ? "flash" : "damage";
+        if (event.assisted) event.assistedBy = ev.assister_name;
+
+        event.attacker = ev.attacker_name;
+        event.attackerProps = [];
+        if (ev.attackerblind) event.attackerProps.push("blind");
+        if (ev.attackerinair) event.attackerProps.push("jumping");
+        if (ev.headshot) event.attackerProps.push("hs");
+        if (ev.noscope) event.attackerProps.push("noscope");
+        if (ev.penetrated > 0) event.attackerProps.push("wallbang");
+        if (ev.thrusmoke) event.attackerProps.push("smoke");
+
+        event.player = ev.user_name;
+        event.weapon = ev.weapon;
+
+        filtered_player_death_events.push(event);
+      }
+    });
+
     rounds.push({
       roundNumber,
       startTick,
@@ -261,7 +317,10 @@ export function processBasicTicks(demoBuffer, demoRoundEvents) {
       afterScoreA: teamAScore,
       afterScoreB: teamBScore,
       events: [demoRoundEvents],
+      timelineEvents: eventsForTimeline,
+      kills: filtered_player_death_events,
       teamASide, // optional if frontend needs this info too
+      length: officiallyEndedTick - startTick,
     });
   }
 

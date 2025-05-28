@@ -50,25 +50,33 @@ api.get("/api/demo/process", async (req, res) => {
     const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
     let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
     let thisMapData = mapData[demoHeader.map_name];
-    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, is_bomb_planted_events, is_bomb_dropped_events } = processEvents(demoFileBuffer, [
+    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, bomb_planted_events, bomb_dropped_events, bomb_defused_events, bomb_begindefuse_events, player_death_events } = processEvents(demoFileBuffer, [
       "round_start",
       "round_freeze_end",
       "round_end",
       "round_officially_ended",
-      "is_bomb_dropped",
-      "is_bomb_planted",
+      "bomb_planted",
+      "bomb_dropped",
+      "bomb_begindefuse",
+      "bomb_defused",
+      "player_death",
     ]);
 
-    console.log(is_bomb_dropped_events);
-    console.log(is_bomb_planted_events);
+    // console.log(bomb_dropped_events);
+    // console.log(bomb_defused_events);
+    // console.log(bomb_begindefuse_events);
+    // console.log(player_death_events);
 
     const demoRoundEvents = {
       round_start_events,
       round_freeze_end_events,
       round_end_events,
       round_officially_ended_events,
-      is_bomb_dropped_events,
-      is_bomb_planted_events,
+      bomb_dropped_events,
+      bomb_planted_events,
+      bomb_defused_events,
+      bomb_begindefuse_events,
+      player_death_events,
     };
 
     // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
@@ -152,6 +160,9 @@ app.whenReady().then(() => {
       demoHeader = header;
 
       currentMap = header.map_name;
+
+      const gameEvents = listGameEvents(demoFileBuffer);
+      console.log(gameEvents);
 
       // Let's get the score
 

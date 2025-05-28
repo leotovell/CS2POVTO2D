@@ -1,21 +1,6 @@
 // const { enableLoader, disableLoader } = require("./js/ui");
-import {
-  drawGrenade,
-  drawPlayer,
-  drawTick,
-  loadCanvasVars,
-  loadMapVars,
-  renderRoundSegments,
-  seekToDemoTime,
-  updateRoundInfo,
-  worldToMap,
-  goToRound,
-  constructTickMap,
-  getTickData,
-  getRoundInfo,
-  getVirtualTickFromDemoTick,
-} from "./js/demo.js";
-import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel, setElementInvisible } from "./js/ui.js";
+import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap, goToRound, constructTickMap, getTickData, getRoundInfo, getVirtualTickFromDemoTick } from "./js/demo.js";
+import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel, setElementInvisible, showFlashMessage } from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -31,6 +16,21 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 async function initHomePage() {
+  const originalConsoleError = console.error;
+  console.error = function (...args) {
+    originalConsoleError.apply(console, args);
+    showFlashMessage("Console error: " + args.join(" "), "error");
+  };
+
+  window.onerror = function (message, source, lineno, colno, error) {
+    showFlashMessage(`JS Error: ${message} at ${lineno}:${colno}`, "error");
+    return false;
+  };
+
+  window.onunhandledrejection = function (event) {
+    showFlashMessage(`Unhandled Promise Rejection: ${event.reason}`, "error");
+  };
+
   let isDemoSelected = false;
   let demoPath = "";
 
@@ -254,12 +254,15 @@ function previewDemo(filePath) {
 export let tickStore = {
   tickMap: null,
   rounds: null,
+  roundVirtualStartTicks: null,
   currentTick: 0,
   maxTick: Infinity,
   currentDemoTick: 0,
   currentRound: 0,
   multiRoundSelection: new Set(),
   multiRoundMasterTick: 0,
+  lastRound: 1,
+  isNewRound: false,
 };
 
 export let settings = {
@@ -274,6 +277,7 @@ export let settings = {
   // Render/Animation Settings
   showShootingTracers: false,
   freezeTimeLength: 3,
+  killFeedDuration: 6.0,
 
   // Multi-round overlay
   multiRoundOverlayMode: false,
@@ -291,6 +295,7 @@ export let settingsToConfigure = [
   { name: "showNadesThrownByHiddenPlayers", type: "checkbox", defaultValue: false },
   { name: "showShootingTracers", type: "checkbox", defaultValue: true },
   { name: "freezeTimeLength", type: "select", defaultValue: 3 },
+  { name: "killFeedDuration", type: "number", defaultValue: 6 },
 ];
 
 export let canvasSettings = {
@@ -328,6 +333,9 @@ function resizeCanvas() {
   ctx.scale(uniformScale, uniformScale);
 }
 
+export let teamAPlayers = [];
+export let teamBPlayers = [];
+
 async function initDemoReviewPage() {
   // Define all HTML elements
   const loader = document.getElementById("loader");
@@ -350,7 +358,23 @@ async function initDemoReviewPage() {
   const multiRoundOverlayToggleBtn = document.getElementById("multiRoundOverlayToggleBtn");
   const printTickbtn = document.getElementById("printCurrentTick");
   const printTickstoreBtn = document.getElementById("printCurrentTickstore");
+  const printRoundBtn = document.getElementById("printCurrentRound");
   const debugPanel = document.getElementById("debugPanel");
+
+  const originalConsoleError = console.error;
+  console.error = function (...args) {
+    originalConsoleError.apply(console, args);
+    showFlashMessage("Console error: " + args.join(" "), "error");
+  };
+
+  window.onerror = function (message, source, lineno, colno, error) {
+    showFlashMessage(`JS Error: ${message} at ${lineno}:${colno}`, "error");
+    return false;
+  };
+
+  window.onunhandledrejection = function (event) {
+    showFlashMessage(`Unhandled Promise Rejection: ${event.reason}`, "error");
+  };
 
   let isDebugPanelShowing = false;
 
@@ -360,6 +384,10 @@ async function initDemoReviewPage() {
 
   printTickstoreBtn.onclick = () => {
     console.log(tickStore);
+  };
+
+  printRoundBtn.onclick = () => {
+    console.log(tickStore.currentRound);
   };
 
   // multiRoundOverlayToggleBtn.addEventListener("click", () => {
@@ -413,6 +441,15 @@ async function initDemoReviewPage() {
 
   tickStore.rounds = rounds;
 
+  // Set players onto their respective teams;
+  scoreboard.teamAlpha.players.forEach((player) => {
+    teamAPlayers.push(player.name);
+  });
+
+  scoreboard.teamBeta.players.forEach((player) => {
+    teamBPlayers.push(player.name);
+  });
+
   console.log(map);
 
   constructTickMap(rounds);
@@ -443,7 +480,22 @@ async function initDemoReviewPage() {
   // speedMultiplierSelect.onchange = (e) => {
   //   speedMultiplier = parseFloat(e.target.value);
   // };
+
   let speedMultiplier = 1;
+
+  document.querySelectorAll(".speed-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const speed = btn.getAttribute("data-speed");
+      // Replace this with your actual speed control logic
+      speedMultiplier = speed;
+
+      // Update the visible speed label
+      document.getElementById("currentSpeedLabel").textContent = "x" + speed;
+
+      // Close dropdown manually
+      // bootstrap.Dropdown.getInstance(btn.closest(".dropdown")).hide();
+    });
+  });
 
   // Loading the map image background and beginning the replay!
 
@@ -464,24 +516,27 @@ async function initDemoReviewPage() {
       if (paused || isScrubbing) return;
 
       tick = getTickData(tickStore.currentTick);
+
       if (tick != null) {
         tickStore.currentDemoTick = tick.demoTick;
+        tickStore.lastRound = tickStore.currentRound;
         tickStore.currentRound = getRoundInfo(tickStore.currentTick);
+        tickStore.isNewRound = tickStore.currentRound != tickStore.lastRound;
 
-        // Update the forward/backward round buttons
-        // if (tickStore.currentRound.roundNumber == 1) {
-        //   disableElement(prevRoundBtn);
-        // } else {
-        //   enableElement(prevRoundBtn);
-        // }
-        // if (tickStore.currentRound.roundNumber == tickStore.rounds.length) {
-        //   disableElement(nextRoundBtn);
-        // } else {
-        //   enableElement(nextRoundBtn);
-        // }
-
-        // Are we between a round start and freeze end? Skip to the desired freeze time length.
         if (tickStore.currentDemoTick < tickStore.currentRound.freezeEndTick - settings.freezeTimeLength * tickrate) {
+          // Update the forward/backward round buttons
+          // if (tickStore.currentRound.roundNumber == 1) {
+          //   disableElement(prevRoundBtn);
+          // } else {
+          //   enableElement(prevRoundBtn);
+          // }
+          // if (tickStore.currentRound.roundNumber == tickStore.rounds.length) {
+          //   disableElement(nextRoundBtn);
+          // } else {
+          //   enableElement(nextRoundBtn);
+          // }
+
+          // Are we between a round start and freeze end? Skip to the desired freeze time length.
           tickStore.currentTick = getVirtualTickFromDemoTick(tickStore.currentRound.freezeEndTick - settings.freezeTimeLength * tickrate);
         }
 
@@ -516,7 +571,12 @@ async function initDemoReviewPage() {
       isScrubbing = true; // Start scrubbing
       clearTimeout(animationTimeout); // Stop any current animation
 
-      const newTick = parseInt(scrubBar.value);
+      // Current round starting virtual tick
+      let vStartTick = getVirtualTickFromDemoTick(tickStore.currentRound.startTick);
+
+      // const newTick = parseInt(scrubBar.value) + parseInt(vStartTick); // Must do this + the virtual round start tick..
+      const newTick = parseInt(scrubBar.value) + parseInt(vStartTick); // Must do this + the virtual round start tick..
+
       seekToDemoTime(newTick);
       tickStore.currentRound = getRoundInfo(tickStore.currentTick);
 
@@ -694,7 +754,7 @@ async function initDemoReviewPage() {
 
   document.addEventListener("keydown", (e) => {
     debugPanel.querySelector("#lastKeyPressed").innerHTML = e.code;
-    if (e.code === "Space") {
+    if (e.code === "KeyR") {
       e.preventDefault(); // Prevent page scrolling
       resetView();
     }
@@ -706,6 +766,13 @@ async function initDemoReviewPage() {
         setElementVisible(debugPanel);
       }
       isDebugPanelShowing = !isDebugPanelShowing;
+    }
+    if (e.code === "Space") {
+      if (paused) {
+        playBtn.click();
+      } else {
+        pauseBtn.click();
+      }
     }
   });
 }

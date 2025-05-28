@@ -208,6 +208,7 @@
       </style>
     </head>
     <body id="viewer">
+      <div id="flash-container" style="position: fixed; top: 10px; right: 10px; z-index: 9999"></div>
       <div class="d-flex h-100">
         <!-- Left Sidebar -->
         <div class="sidebar round-bar d-flex flex-column p-3">
@@ -215,6 +216,7 @@
           <button id="saveDemoBtn" class="btn btn-primary">Save Demo</button>
           <button id="printCurrentTick" class="btn btn-primary">Print Tick</button>
           <button id="printCurrentTickstore" class="btn btn-primary">Print Tickstore</button>
+          <button id="printCurrentRound" class="btn btn-primary">Print Round</button>
         </div>
 
         <!-- Main Content Area -->
@@ -237,19 +239,33 @@
             <!-- Overlay Container -->
             <div class="overlay-container position-absolute top-0 start-0 w-100 h-100">
               <!-- Top-right control -->
-              <div class="position-absolute top-0 end-0 m-3 overlay-control d-flex flex-column badge bg-dark">
+              <div class="position-absolute top-0 m-3 overlay-control d-flex flex-column badge bg-dark">
                 <span><span id="teamAlphaScore">12</span>&nbsp;:&nbsp;<span id="teamBetaScore">9</span></span>
                 <span>Round Timer</span>
                 <div class="container-fluid"><span id="roundTimeMinutes"></span><span>:</span><span id="roundTimeSeconds"></span></div>
               </div>
 
+              <div class="position-absolute end-0 m-3 overlay-control d-flex flex-column d-flex flex-column-reverse" id="killfeed" style="gap: 5px"></div>
+
               <!-- Bottom-right control -->
-              <div class="position-absolute bottom-0 end-0 m-3 overlay-control">
-                <select class="form-select form-select-sm w-auto">
-                  <option>Speed x1</option>
-                  <option>Speed x2</option>
-                  <option>Speed x3</option>
-                </select>
+              <!-- Bottom-right speed control -->
+              <div class="position-absolute bottom-0 end-0 m-3 overlay-control dropdown">
+                <button class="btn btn-outline-light btn-sm dropdown-toggle d-flex align-items-center flex-row" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Playback Speed">
+                  <i class="bi bi-speedometer2 me-1"></i>
+                  <span id="currentSpeedLabel">x1</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end p-2 bg-dark text-white" style="min-width: auto">
+                  <li>
+                    <div class="btn-group" role="group">
+                      <button type="button" class="btn btn-outline-light btn-sm speed-btn" data-speed="0.25">x0.25</button>
+                      <button type="button" class="btn btn-outline-light btn-sm speed-btn" data-speed="0.5">x0.5</button>
+                      <button type="button" class="btn btn-outline-light btn-sm speed-btn" data-speed="1">x1</button>
+                      <button type="button" class="btn btn-outline-light btn-sm speed-btn" data-speed="2">x2</button>
+                      <button type="button" class="btn btn-outline-light btn-sm speed-btn" data-speed="4">x4</button>
+                      <button type="button" class="btn btn-outline-light btn-sm speed-btn" data-speed="8">x8</button>
+                    </div>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
@@ -309,44 +325,6 @@
 
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
       <script>
-        const eventTimestamps = [300, 700, 1250, 2000]; // Example values
-        const max = 2500;
-
-        const markersContainer = document.getElementById("event-markers");
-        const eventIconsContainer = document.getElementById("eventIconsContainer");
-
-        eventTimestamps.forEach((time) => {
-          const left = (time / max) * 100;
-          const marker = document.createElement("div");
-          marker.classList.add("event-marker");
-          marker.style.left = `${left}%`;
-          markersContainer.appendChild(marker);
-
-          // event icons
-          const svg = document.createElement("svg");
-          svg.style.transform = "translate(-48%, -130%)";
-          svg.style.position = "absolute";
-          svg.className = "event-icon";
-          // set svg size then fetch
-          // svg.style.width = "40px";
-          // svg.style.height = "40px";
-
-          // get and insert the svg code
-          fetch("img/game_icons/elimination-icon.svg")
-            .then((res) => res.text())
-            .then((data) => {
-              svg.innerHTML = data;
-              svg.removeAttribute("width");
-              svg.removeAttribute("height");
-              svg.style.width = "32px";
-              svg.style.height = "32px";
-              svg.removeAttribute("fill");
-              svg.style.fill = "orange";
-            });
-
-          marker.appendChild(svg);
-        });
-
         const canvas = document.getElementById("minimap");
         const ctx = canvas.getContext("2d");
 

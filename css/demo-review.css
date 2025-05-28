@@ -191,3 +191,7 @@
 .event-icon:hover {
   color: white;
 }
+
+#killfeed div {
+  font-size: large;
+}

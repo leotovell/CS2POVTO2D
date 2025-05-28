@@ -15,6 +15,7 @@ const teamBetaNameSpan = document.getElementById("teamBetaName");
 const teamBetaScoreSpan = document.getElementById("teamBetaScore");
 
 import { settings, tickStore, CTColor, TColor, TBombColor, canvasSettings } from "../renderer.js";
+import { updateEventTimeline, updateKillFeed } from "./ui.js";
 
 let canvas;
 let ctx;
@@ -48,6 +49,13 @@ export function constructTickMap(rounds) {
 
   // Whilst we are at it, let's grab the max virtual tick possible.
   tickStore.maxTick = Object.keys(tickMap).length;
+
+  // Also for scrubbing let's grab the starting virtual ticks for each round startTick.
+  // const roundStartTicks = {};
+
+  // rounds.forEach()
+
+  // tickStore.roundVirtualStartTicks = roundStartTicks;
 }
 
 export function getTickData(tick) {
@@ -81,7 +89,7 @@ export function getVirtualTickFromDemoTick(demoTick) {
     }
   }
 
-  return closest;
+  return parseInt(closest);
 }
 
 const teamAName = localStorage.getItem("teamAName");
@@ -341,6 +349,13 @@ let lowerMapDrawn = {
 
 export function drawTick(tick, mainMapImg, lowerMapImg) {
   updateRoundInfo();
+
+  if (tick != undefined) {
+    // let thisRound = getRoundInfo(tick.demoTick);
+    // console.log(tickStore.lastRound, tickStore.currentRound, tickStore.isNewRound);
+    updateEventTimeline(tickStore.currentRound);
+    updateKillFeed();
+  }
 
   currentTickSpan.innerHTML = tickStore.currentTick + " of " + tickStore.maxTick;
 
