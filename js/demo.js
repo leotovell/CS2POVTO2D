@@ -6,19 +6,24 @@
 const roundTimeMins = document.getElementById("roundTimeMinutes");
 const roundTimeSecs = document.getElementById("roundTimeSeconds");
 const backgroundDiv = document.getElementById("scrubBarBackground");
-const currentTickSpan = document.getElementById("currentTickSpan");
-const scrubBar = document.getElementById("scrubBar");
+const currentTickSpan = document.getElementById("currentTick");
+const currentDemoTickSpan = document.getElementById("currentDemoTick");
+const scrubBar = document.getElementById("timeline-range");
 const roundSelect = document.getElementById("roundSelect");
 const teamAlphaNameSpan = document.getElementById("teamAlphaName");
 const teamAlphaScoreSpan = document.getElementById("teamAlphaScore");
 const teamBetaNameSpan = document.getElementById("teamBetaName");
 const teamBetaScoreSpan = document.getElementById("teamBetaScore");
 
-import { settings, tickStore, CTColor, TColor, TBombColor } from "../renderer.js";
+import { settings, tickStore, CTColor, TColor, TBombColor, canvasSettings } from "../renderer.js";
+import { clearKillFeed, setActiveRound, updateEventTimeline, updateKillFeed, updatePlayerHUD } from "./ui.js";
 
 let canvas;
 let ctx;
 let map;
+let imgDrawX, imgDrawY;
+let lowerDrawX, lowerDrawY;
+let mainMapImg, lowerMapImg;
 
 export function loadCanvasVars(canvasEl, ctxEl) {
   canvas = canvasEl;
@@ -27,6 +32,11 @@ export function loadCanvasVars(canvasEl, ctxEl) {
 
 export function loadMapVars(mapdata) {
   map = mapdata;
+}
+
+export function loadMapImgContext(main, lower) {
+  mainMapImg = main;
+  lowerMapImg = lower;
 }
 
 const playerDirectionLineLength = 10;
@@ -46,6 +56,13 @@ export function constructTickMap(rounds) {
 
   // Whilst we are at it, let's grab the max virtual tick possible.
   tickStore.maxTick = Object.keys(tickMap).length;
+
+  // Also for scrubbing let's grab the starting virtual ticks for each round startTick.
+  // const roundStartTicks = {};
+
+  // rounds.forEach()
+
+  // tickStore.roundVirtualStartTicks = roundStartTicks;
 }
 
 export function getTickData(tick) {
@@ -79,7 +96,7 @@ export function getVirtualTickFromDemoTick(demoTick) {
     }
   }
 
-  return closest;
+  return parseInt(closest);
 }
 
 const teamAName = localStorage.getItem("teamAName");
@@ -95,7 +112,7 @@ const teamBName = localStorage.getItem("teamBName");
 export function updateRoundInfo() {
   let round = tickStore.currentRound;
 
-  roundSelect.value = round.roundNumber;
+  // roundSelect.value = round.roundNumber;
 
   let roundTimeM = "1";
   let roundTimeS = "55";
@@ -154,11 +171,15 @@ export function updateRoundInfo() {
 
   // Apply inline color styling
   if (aSide === "ct") {
-    teamAlphaScoreSpan.style.color = "#4ea5f7"; // CT blue
-    teamBetaScoreSpan.style.color = "#f79b4e"; // T orange
+    teamAlphaScoreSpan.style.color = CTColor; // CT blue
+    teamAlphaNameSpan.style.color = CTColor;
+    teamBetaScoreSpan.style.color = TColor; // T orange
+    teamBetaNameSpan.style.color = TColor;
   } else {
-    teamAlphaScoreSpan.style.color = "#f79b4e"; // T orange
-    teamBetaScoreSpan.style.color = "#4ea5f7"; // CT blue
+    teamAlphaScoreSpan.style.color = TColor; // T orange
+    teamAlphaNameSpan.style.color = TColor;
+    teamBetaScoreSpan.style.color = CTColor; // CT blue
+    teamBetaNameSpan.style.color = CTColor;
   }
 }
 
@@ -195,17 +216,51 @@ export function renderRoundSegments(rounds) {
  * @param {Object} map Map information (from map-data.json)
  * @returns {{}}
  */
-export function worldToMap(x, y) {
+// export function worldToMap(x, y) {
+//   const offsetX = map.pos_x;
+//   const offsetY = map.pos_y;
+//   const scale = map.scale;
+//   let mapX = (x - offsetX) / scale;
+//   let mapY = (offsetY - y) / scale;
+//   mapY -= map.src_y;
+//   return [mapX, mapY];
+// }
+export function worldToMap(x, y, z, map) {
   const offsetX = map.pos_x;
   const offsetY = map.pos_y;
   const scale = map.scale;
-  const mapX = (x - offsetX) / scale;
-  const mapY = (offsetY - y) / scale;
-  return [mapX, mapY];
+
+  // Convert world coordinates to image space
+  let imgX = (x - offsetX) / scale;
+  let imgY = (offsetY - y) / scale;
+
+  let useLowerMap = map.lower_level_max_units != -1000000.0 && z < map.lower_level_max_units;
+
+  if (!useLowerMap) {
+    // --- Upper map logic (unchanged) ---
+    const baseWidth = canvas.offsetWidth / 1;
+    const aspectRatio = map.src_height / map.src_width;
+    const baseHeight = baseWidth * aspectRatio;
+
+    const drawX = (imgX - map.src_x) * (baseWidth / map.src_width) + imgDrawX;
+    const drawY = (imgY - map.src_y) * (baseHeight / map.src_height) + imgDrawY;
+
+    return [drawX, drawY];
+  } else {
+    // --- Lower map logic ---
+    const lowerBaseWidth = canvas.offsetWidth / 3.8;
+    const lowerAspectRatio = map.lower_src_height / map.lower_src_width;
+    const lowerBaseHeight = lowerBaseWidth * lowerAspectRatio;
+
+    const drawX = (imgX - map.lower_src_x) * (lowerBaseWidth / map.lower_src_width) + lowerDrawX;
+    const drawY = (imgY - map.lower_src_y) * (lowerBaseHeight / map.lower_src_height) + lowerDrawY;
+
+    return [drawX, drawY];
+  }
 }
 
 export function drawPlayer(player) {
-  const [x, y] = worldToMap(player.X, player.Y, map);
+  const [x, y] = worldToMap(player.X, player.Y, player.Z, map);
 
   // Player name
   ctx.font = "12px Arial";
@@ -260,20 +315,35 @@ export function drawPlayer(player) {
 }
 
 export function drawGrenade(grenade) {
-  const [x, y] = worldToMap(grenade.x, grenade.y);
+  const [x, y] = worldToMap(grenade.x, grenade.y, grenade.z, map);
 
   ctx.beginPath();
-  ctx.arc(x, y, 5, 0, 2 * Math.PI);
-  ctx.fillStyle = "teal";
+  if (grenade.type == "CSmokeGrenadeProjectile") {
+    ctx.arc(x, y, 28, 0, 2 * Math.PI);
+    ctx.fillStyle = "grey";
+  } else {
+    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = "teal";
+  }
   ctx.fill();
 }
 
+/**
+ *
+ * @author Leo Tovell
+ *
+ * @description Takes a (virtual) tick to seek to in the demo. You can get the virtual tick using `getVirtualTickFromDemoTick`
+ *
+ * @export
+ * @param {*} scrubbedTick
+ */
 export function seekToDemoTime(scrubbedTick) {
   if (settings.multiRoundOverlayMode) {
     tickStore.multiRoundMasterTick = scrubbedTick;
   } else {
     tickStore.currentTick = scrubbedTick;
   }
+  drawTick(getTickData(scrubbedTick), mainMapImg, lowerMapImg);
 }
 
 export function goToRound(roundNumber) {
@@ -296,26 +366,61 @@ export function goToRound(roundNumber) {
   tickStore.currentRound = round;
 }
 
-export function drawTick(tick, mapImage) {
+let lowerMapDrawn = {
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+};
+
+export function drawTick(tick, mainMapImg, lowerMapImg) {
   updateRoundInfo();
 
-  currentTickSpan.innerHTML = tickStore.currentTick + " of " + tickStore.maxTick;
+  if (tick != undefined) {
+    // let thisRound = getRoundInfo(tick.demoTick);
+    // console.log(tickStore.lastRound, tickStore.currentRound, tickStore.isNewRound);
+    if (tickStore.isNewRound) {
+      updateEventTimeline(tickStore.currentRound);
+      setActiveRound(tickStore.currentRound.roundNumber);
+      clearKillFeed();
+    }
+    updateKillFeed();
+    updatePlayerHUD();
+  }
 
+  currentTickSpan.innerHTML = tickStore.currentTick + " of " + tickStore.maxTick;
+  currentDemoTickSpan.innerHTML = tickStore.currentDemoTick;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
+
+  ctx.translate(canvasSettings.offsetX, canvasSettings.offsetY);
+  ctx.scale(canvasSettings.zoom, canvasSettings.zoom);
+
+  const baseWidth = canvas.offsetWidth / 1;
+  const aspectRatio = map.src_height / map.src_width;
+  const baseHeight = baseWidth * aspectRatio;
+  const offsetY = map.offset_y ?? 0;
+  imgDrawY = canvas.height - baseHeight + offsetY;
+  imgDrawX = 0;
+
+  ctx.drawImage(mainMapImg, map.src_x, map.src_y, map.src_width, map.src_height, imgDrawX, imgDrawY, baseWidth, baseHeight);
+
+  if (canvasSettings.layers == 2) {
+    const lowerBaseWidth = canvas.offsetWidth / 3.8;
+    const lowerAspectRatio = map.lower_src_height / map.lower_src_width;
+    const lowerBaseHeight = lowerBaseWidth * lowerAspectRatio;
+
+    lowerDrawX = 70;
+    lowerDrawY = 0;
+
+    ctx.drawImage(lowerMapImg, map.lower_src_x, map.lower_src_y, map.lower_src_width, map.lower_src_height, 70, 0, lowerBaseWidth, lowerBaseHeight);
+  }
 
   // NORMAL MODE - ROUND BY ROUND
   if (!settings.multiRoundOverlayMode) {
     // If tick exists, draw it's contents.
     if (tick) {
-      if (tick.players) {
-        for (const player of tick.players) {
-          if (!settings.hiddenPlayers.has(player.name)) {
-            drawPlayer(player);
-          }
-        }
-      }
-
       if (tick.grenades) {
         for (const nade of tick.grenades) {
           if (!settings.showNadesThrownByHiddenPlayers && !settings.hiddenPlayers.has(nade.name)) {
@@ -323,10 +428,17 @@ export function drawTick(tick, mapImage) {
           }
         }
       }
+      if (tick.players) {
+        for (const player of tick.players) {
+          if (!settings.hiddenPlayers.has(player.name)) {
+            drawPlayer(player);
+          }
+        }
+      }
     }
 
-    scrubBar.max = tickStore.maxTick;
-    scrubBar.value = tickStore.currentTick;
+    scrubBar.max = tickStore.currentRound.officiallyEndedTick - tickStore.currentRound.startTick;
+    scrubBar.value = tickStore.currentDemoTick - tickStore.currentRound.startTick;
   } else {
     // MULTIROUND MODE - OVERLAYED ALL ROUNDS SPECIFIED
 

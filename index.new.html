@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CS2 Demo To 2D | Home</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/common.css" />
+    <link rel="stylesheet" href="css/demo-preview.css" />
+    <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+      body {
+        font-family: "Inter", "Noto Sans", sans-serif;
+        background-color: #101723;
+        color: white;
+      }
+      .demo-card {
+        background-color: #101723;
+        transition: box-shadow 0.3s ease;
+      }
+      .demo-card:hover {
+        box-shadow: inset 0 0 0 1px grey;
+        cursor: pointer;
+      }
+      .demo-subtext {
+        color: #90a7cb;
+      }
+      .btn-custom {
+        background-color: #223149;
+        color: white;
+        font-weight: bold;
+      }
+      .btn-custom:hover {
+        background-color: #2e3d59;
+      }
+
+      #preview-container {
+        position: relative;
+        background-color: #0e1420;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        /* min-height: 500px; */
+        /* height: 100%; */
+      }
+
+      .loader-overlay {
+        position: absolute;
+        inset: 0;
+        background-color: rgba(16, 23, 35, 0.85);
+        z-index: 10;
+      }
+
+      .banner-image-container img {
+        max-height: 250px;
+        object-fit: cover;
+        width: 100%;
+        border-radius: 0.5rem;
+      }
+    </style>
+  </head>
+  <body id="home" class="min-vh-100 d-flex flex-column m-5" style="overflow: hidden">
+    <div id="flash-container" style="position: fixed; top: 10px; right: 10px; z-index: 9999"></div>
+    <div class="container-fluid mt-3">
+      <div class="row">
+        <div class="col">
+          <div class="w-100" style="max-width: 960px">
+            <div class="mb-4 px-3">
+              <h1 class="fw-bold fs-2">Select a demo to watch</h1>
+              <p class="pt-1">Drag and drop your demo file here or click on the button below</p>
+            </div>
+
+            <div class="px-3 mb-5">
+              <button id="uploadDemoBtn" class="btn btn-custom d-block align-items-center w-100 gap-2 px-4 py-2 rounded">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
+                  <path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM40,56H92.69l16,16H40ZM216,200H40V88H216Z"></path>
+                </svg>
+                <span class="text-truncate">Choose File</span>
+              </button>
+            </div>
+
+            <div class="px-3">
+              <h3 class="fw-bold fs-5 mb-3">Recent Demos</h3>
+
+              <div class="d-flex gap-3 demo-card p-3 rounded">
+                <div class="rounded" style="width: 70px; height: 70px; background-image: url('./img/maps/de_ancient_icon.png'); background-size: cover; background-position: center"></div>
+                <div class="flex-grow-1 d-flex flex-column justify-content-center">
+                  <p class="mb-1 fw-medium">Alvum Imotus vs Cheeky Boys (7:13)</p>
+                  <p class="mb-0 demo-subtext small">07/05/25 | Ancient | UKIC S6</p>
+                </div>
+              </div>
+
+              <div class="d-flex gap-3 demo-card p-3 rounded">
+                <div class="rounded" style="width: 70px; height: 70px; background-image: url('./img/maps/de_ancient_icon.png'); background-size: cover; background-position: center"></div>
+                <div class="flex-grow-1 d-flex flex-column justify-content-center">
+                  <p class="mb-1 fw-medium">Alvum Imotus vs AWP India (11:13)</p>
+                  <p class="mb-0 demo-subtext small">05/05/25 | Ancient | UKIC S6</p>
+                </div>
+              </div>
+
+              <div class="d-flex gap-3 demo-card p-3 rounded">
+                <div class="rounded" style="width: 70px; height: 70px; background-image: url('./img/maps/de_nuke_icon.png '); background-size: cover; background-position: center"></div>
+                <div class="flex-grow-1 d-flex flex-column justify-content-center">
+                  <p class="mb-1 fw-medium">Alvum Imotus vs BFU (12:12)</p>
+                  <p class="mb-0 demo-subtext small">04/05/25 | Nuke | UKIC S6</p>
+                </div>
+              </div>
+
+              <div class="d-flex gap-3 demo-card p-3 rounded">
+                <div class="rounded" style="width: 70px; height: 70px; background-image: url('./img/maps/de_nuke_icon.png'); background-size: cover; background-position: center"></div>
+                <div class="flex-grow-1 d-flex flex-column justify-content-center">
+                  <p class="mb-1 fw-medium">Alvum Imotus vs Jittleyang (7:13)</p>
+                  <p class="mb-0 demo-subtext small">30/04/25 | Nuke | UKIC S6</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="position-relative" id="preview-container" style="visibility: hidden">
+            <!-- Loader overlay only for this container -->
+            <div class="loader-overlay d-flex flex-column justify-content-center align-items-center" id="loader">
+              <div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <div class="loader-text mt-3" id="loader-text">Loading Preview...</div>
+            </div>
+
+            <!-- Preview content -->
+            <div class="preview-content">
+              <div class="banner-image-container mb-3">
+                <img src="img/maps/de_mirage.png" alt="Map Preview" id="p_mapImg" class="img-fluid rounded" />
+              </div>
+
+              <div id="ScoreboardInformation" class="score-display-container d-flex justify-content-between align-items-center mt-4">
+                <div class="team-list">
+                  <h5 id="teamAName" class="text-center">Team Alpha</h5>
+                  <div class="row row-cols-1" id="p_teamAPlayers"></div>
+                </div>
+
+                <div class="score-display text-center">
+                  <h1 class="display-1 fw-bold">
+                    <span id="teamAScore" class="text-success">13</span>&nbsp;:&nbsp;
+                    <span id="teamBScore" class="text-danger">8</span>
+                  </h1>
+                </div>
+
+                <div class="team-list">
+                  <h5 id="teamBName" class="text-center">Team Bravo</h5>
+                  <div class="row row-cols-1" id="p_teamBPlayers"></div>
+                </div>
+              </div>
+
+              <div style="display: none !important" id="POVInformation" class="d-flex justify-content-center align-items-center my-4">
+                <div class="text-center">
+                  <h1>No scoreboard available for POV Demos</h1>
+                  <p>Recorded by: <span id="recordedBySpan">N/A</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="position-relative row mt-3" id="preview-btns">
+            <div class="col">
+              <button class="btn btn-secondary w-100" id="cancelPreviewBtn">Cancel</button>
+            </div>
+            <div class="col">
+              <button class="btn btn-success w-100" id="processDemoBtn">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./renderer.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

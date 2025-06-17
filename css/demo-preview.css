@@ -1,7 +1,7 @@
 /* Banner image at the top */
 .banner-image-container {
   width: 100%;
-  height: 40vh; /* Start at 40% of the viewport height */
+  /* height: 40vh; Start at 40% of the viewport height */
   overflow: hidden;
   position: relative;
 }

@@ -2,8 +2,8 @@ import { app, BrowserWindow, ipcMain, dialog, Menu, MenuItem } from "electron";
 import * as nodePath from "node:path";
 import { readFileSync, writeFile } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
-import { cleanDemoData, debugTime, previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
+import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades, parsePlayerSkins } from "@laihoe/demoparser2";
+import { previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
 import { Worker } from "worker_threads";
 import express from "express";
 import { Readable } from "node:stream";
@@ -17,11 +17,11 @@ let isPreprocessed = false;
 
 // global vars for demo data
 
-let demoIsFaceit = true;
 let demoHeader;
 let demoScoreboard;
 let demoRounds;
 let demoMapData;
+let demoMapName;
 
 function runWorker(task, buffer, demoRoundEvents) {
   return new Promise((resolve, reject) => {
@@ -49,33 +49,42 @@ api.get("/api/demo/process", async (req, res) => {
   if (demoFilePath.endsWith(".dem")) {
     const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
     let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
-    let thisMapData = mapData[currentMap];
-    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, is_bomb_planted_events, is_bomb_dropped_events } = processEvents(demoFileBuffer, [
+    let thisMapData = mapData[demoHeader.map_name];
+    // let gameEndTick = Math.max(...parseEvent(demoFileBuffer, "round_end").map((x) => x.tick));
+    let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, bomb_planted_events, bomb_dropped_events, bomb_defused_events, bomb_begindefuse_events, player_death_events } = processEvents(demoFileBuffer, [
       "round_start",
       "round_freeze_end",
       "round_end",
       "round_officially_ended",
-      "is_bomb_dropped",
-      "is_bomb_planted",
+      "bomb_planted",
+      "bomb_dropped",
+      "bomb_begindefuse",
+      "bomb_defused",
+      "player_death",
     ]);
-
-    console.log(is_bomb_dropped_events);
-    console.log(is_bomb_planted_events);
 
     const demoRoundEvents = {
       round_start_events,
       round_freeze_end_events,
       round_end_events,
       round_officially_ended_events,
-      is_bomb_dropped_events,
-      is_bomb_planted_events,
+      bomb_dropped_events,
+      bomb_planted_events,
+      bomb_defused_events,
+      bomb_begindefuse_events,
+      player_death_events,
     };
 
-    // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
+    // Get scoreboard at end of each round_end_event,
+    let scoreboardFields = ["kills_total", "assists_total", "deaths_total"];
+    let roundScoreboards = parseTicks(
+      demoFileBuffer,
+      scoreboardFields,
+      demoRoundEvents.round_start_events.map((ev) => ev.tick)
+    );
+    demoRoundEvents.scoreboards = roundScoreboards;
 
-    if (demoIsFaceit) {
-      // After rounds are processed remove the non-knife and non-regulation/OT rounds.
-    }
+    // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
 
     let [rounds, grenades] = await Promise.all([runWorker("ticks", demoFileBuffer, demoRoundEvents), runWorker("grenades", demoFileBuffer)]);
     // Add in grenades to the groupedTicks (runs AFTER the promise resolves)
@@ -94,9 +103,13 @@ api.get("/api/demo/process", async (req, res) => {
 
     // return returnObj;
   } else if (demoFilePath.endsWith(".json")) {
+    const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
+    let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
+    let thisMapData = mapData[demoHeader.map_name];
+    // console.log(demoScoreboard);
     returnObj = {
       rounds: demoRounds,
-      mapData: demoMapData,
+      mapData: thisMapData,
       scoreboard: demoScoreboard,
     };
 
@@ -117,10 +130,9 @@ function createWindow() {
       preload: nodePath.join(nodePath.resolve(), "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      enableBlinkFeatures: "none",
     },
   });
-  mainWindow.loadFile("index.html");
+  mainWindow.loadFile("index.new.html");
 }
 
 app.whenReady().then(() => {
@@ -139,11 +151,10 @@ app.whenReady().then(() => {
     return result.filePaths;
   });
 
-  ipcMain.handle("demo:preview", async (_, demoPath, isFaceit) => {
+  ipcMain.handle("demo:preview", async (_, demoPath) => {
     console.log("Previewing demo:", demoPath);
 
     demoFilePath = demoPath;
-    demoIsFaceit = isFaceit;
 
     // Identify if its a .dem or .json
     if (demoPath.endsWith(".dem")) {
@@ -154,6 +165,9 @@ app.whenReady().then(() => {
       demoHeader = header;
 
       currentMap = header.map_name;
+
+      const gameEvents = listGameEvents(demoFileBuffer);
+      console.log(gameEvents);
 
       // Let's get the score
 
@@ -185,16 +199,20 @@ app.whenReady().then(() => {
         demoScoreboard = importedDemo.scoreboard;
         // demoTicks = importedDemo.ticks;
         // demoEvents = importedDemo.events;
-        demoMapData = importedDemo.mapdata;
         demoRounds = importedDemo.rounds;
       } catch (err) {
         console.error("Error reading/parsing .json:", err);
       }
     }
 
+    const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
+    let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
+    let thisMapData = mapData[demoHeader.map_name];
+
     return {
       header: demoHeader,
       scoreboard: demoScoreboard,
+      mapData: thisMapData,
     };
   });
 
@@ -209,7 +227,6 @@ app.whenReady().then(() => {
       header: demoHeader,
       scoreboard: demoScoreboard,
       rounds: demoRounds,
-      mapdata: demoMapData,
     };
 
     return new Promise((resolve) => {
@@ -229,6 +246,7 @@ app.whenReady().then(() => {
   console.log("Initialising Window...");
 
   createWindow();
+  mainWindow.maximize();
 
   app.on("activate", function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
