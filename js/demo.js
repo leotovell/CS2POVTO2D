@@ -7,6 +7,7 @@ const roundTimeMins = document.getElementById("roundTimeMinutes");
 const roundTimeSecs = document.getElementById("roundTimeSeconds");
 const backgroundDiv = document.getElementById("scrubBarBackground");
 const currentTickSpan = document.getElementById("currentTick");
+const currentDemoTickSpan = document.getElementById("currentDemoTick");
 const scrubBar = document.getElementById("timeline-range");
 const roundSelect = document.getElementById("roundSelect");
 const teamAlphaNameSpan = document.getElementById("teamAlphaName");
@@ -15,13 +16,14 @@ const teamBetaNameSpan = document.getElementById("teamBetaName");
 const teamBetaScoreSpan = document.getElementById("teamBetaScore");
 
 import { settings, tickStore, CTColor, TColor, TBombColor, canvasSettings } from "../renderer.js";
-import { updateEventTimeline, updateKillFeed } from "./ui.js";
+import { clearKillFeed, setActiveRound, updateEventTimeline, updateKillFeed, updatePlayerHUD } from "./ui.js";
 
 let canvas;
 let ctx;
 let map;
 let imgDrawX, imgDrawY;
 let lowerDrawX, lowerDrawY;
+let mainMapImg, lowerMapImg;
 
 export function loadCanvasVars(canvasEl, ctxEl) {
   canvas = canvasEl;
@@ -30,6 +32,11 @@ export function loadCanvasVars(canvasEl, ctxEl) {
 
 export function loadMapVars(mapdata) {
   map = mapdata;
+}
+
+export function loadMapImgContext(main, lower) {
+  mainMapImg = main;
+  lowerMapImg = lower;
 }
 
 const playerDirectionLineLength = 10;
@@ -164,11 +171,15 @@ export function updateRoundInfo() {
 
   // Apply inline color styling
   if (aSide === "ct") {
-    teamAlphaScoreSpan.style.color = "#4ea5f7"; // CT blue
-    teamBetaScoreSpan.style.color = "#f79b4e"; // T orange
+    teamAlphaScoreSpan.style.color = CTColor; // CT blue
+    teamAlphaNameSpan.style.color = CTColor;
+    teamBetaScoreSpan.style.color = TColor; // T orange
+    teamBetaNameSpan.style.color = TColor;
   } else {
-    teamAlphaScoreSpan.style.color = "#f79b4e"; // T orange
-    teamBetaScoreSpan.style.color = "#4ea5f7"; // CT blue
+    teamAlphaScoreSpan.style.color = TColor; // T orange
+    teamAlphaNameSpan.style.color = TColor;
+    teamBetaScoreSpan.style.color = CTColor; // CT blue
+    teamBetaNameSpan.style.color = CTColor;
   }
 }
 
@@ -332,6 +343,7 @@ export function seekToDemoTime(scrubbedTick) {
   } else {
     tickStore.currentTick = scrubbedTick;
   }
+  drawTick(getTickData(scrubbedTick), mainMapImg, lowerMapImg);
 }
 
 export function goToRound(roundNumber) {
@@ -367,11 +379,17 @@ export function drawTick(tick, mainMapImg, lowerMapImg) {
   if (tick != undefined) {
     // let thisRound = getRoundInfo(tick.demoTick);
     // console.log(tickStore.lastRound, tickStore.currentRound, tickStore.isNewRound);
-    updateEventTimeline(tickStore.currentRound);
+    if (tickStore.isNewRound) {
+      updateEventTimeline(tickStore.currentRound);
+      setActiveRound(tickStore.currentRound.roundNumber);
+      clearKillFeed();
+    }
     updateKillFeed();
+    updatePlayerHUD();
   }
 
   currentTickSpan.innerHTML = tickStore.currentTick + " of " + tickStore.maxTick;
+  currentDemoTickSpan.innerHTML = tickStore.currentDemoTick;
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);

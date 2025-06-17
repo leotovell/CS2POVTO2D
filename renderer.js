@@ -1,6 +1,37 @@
 // const { enableLoader, disableLoader } = require("./js/ui");
-import { drawGrenade, drawPlayer, drawTick, loadCanvasVars, loadMapVars, renderRoundSegments, seekToDemoTime, updateRoundInfo, worldToMap, goToRound, constructTickMap, getTickData, getRoundInfo, getVirtualTickFromDemoTick } from "./js/demo.js";
-import { enableLoader, disableLoader, setElementVisible, disableElement, enableElement, setupPlayerFiltersModal, setupSettingsListeners, setupMultiRoundsPanel, setElementInvisible, showFlashMessage, preloadSVG, generateRoundList } from "./js/ui.js";
+import {
+  drawGrenade,
+  drawPlayer,
+  drawTick,
+  loadCanvasVars,
+  loadMapVars,
+  renderRoundSegments,
+  seekToDemoTime,
+  updateRoundInfo,
+  worldToMap,
+  goToRound,
+  constructTickMap,
+  getTickData,
+  getRoundInfo,
+  getVirtualTickFromDemoTick,
+  loadMapImgContext,
+} from "./js/demo.js";
+import {
+  enableLoader,
+  disableLoader,
+  setElementVisible,
+  disableElement,
+  enableElement,
+  setupPlayerFiltersModal,
+  setupSettingsListeners,
+  setupMultiRoundsPanel,
+  setElementInvisible,
+  showFlashMessage,
+  preloadSVG,
+  generateRoundList,
+  toggleElementVisibility,
+  generatePlayerHUD,
+} from "./js/ui.js";
 import { loadPage } from "./js/utils.js";
 
 let game_icons_path = "./img/game_icons/";
@@ -21,6 +52,10 @@ let game_icons = [
   "play-icon",
   "through-smoke-kill-icon",
   "clock-icon",
+  "health-icon",
+  "dollar-icon",
+  "armor-icon",
+  "assist-icon",
 ];
 let weapon_icons_path = "./img/game_icons/weapons/";
 let weapon_icons = [
@@ -43,9 +78,34 @@ let weapon_icons = [
   "incendiary-grenade-icon",
   "kevlar-icon",
   "knife-icon",
+  "knife",
+  "knifegg",
+  "knife_bayonet",
+  "knife_bowie",
+  "knife_butterfly",
+  "knife_canis",
+  "knife_cord",
+  "knife_css",
+  "knife_falchion",
+  "knife_flip",
+  "knife_gut",
+  "knife_gypsy_jackknife",
+  "knife_karambit",
+  "knife_kukri",
+  "knife_m9_bayonet",
+  "knife_outdoor",
+  "knife_push",
+  "knife_skeleton",
+  "knife_stiletto",
+  "knife_t",
+  "knife_tactical",
+  "knife_twinblade",
+  "knife_ursus",
+  "knife_widowmaker",
   "m249-icon",
   "m4a1-icon",
   "m4a1-silencer-off-icon",
+  "m4a1_silencer-icon",
   "m4a4-icon",
   "mac10-icon",
   "mag7-icon",
@@ -71,6 +131,7 @@ let weapon_icons = [
   "world-icon",
   "xm1014-icon",
   "zeus-icon",
+  "bomb-icon",
 ];
 
 // Preload all SVGs in the img folder:
@@ -421,6 +482,7 @@ function resizeCanvas() {
 
 export let teamAPlayers = [];
 export let teamBPlayers = [];
+export let allPlayers = [];
 
 async function initDemoReviewPage() {
   // Define all HTML elements
@@ -446,6 +508,8 @@ async function initDemoReviewPage() {
   const printTickstoreBtn = document.getElementById("printCurrentTickstore");
   const printRoundBtn = document.getElementById("printCurrentRound");
   const debugPanel = document.getElementById("debugPanel");
+
+  enableLoader(loader, loaderText, "Processing Demo...<br/>This may take up to a minute.");
 
   const originalConsoleError = console.error;
   console.error = function (...args) {
@@ -536,6 +600,8 @@ async function initDemoReviewPage() {
     teamBPlayers.push(player.name);
   });
 
+  allPlayers = teamAPlayers.concat(teamBPlayers);
+
   constructTickMap(rounds);
 
   // disableLoader(loader);
@@ -549,6 +615,7 @@ async function initDemoReviewPage() {
   // setupMultiRoundsPanel(document.getElementById("multi-rounds-list"), rounds);
 
   generateRoundList(rounds);
+  generatePlayerHUD();
 
   // Flags
   const tickrate = 64;
@@ -592,6 +659,7 @@ async function initDemoReviewPage() {
   canvasSettings.layers = map.lower_level_max_units !== -1000000.0 ? 2 : 1;
 
   const onAllImagesLoaded = () => {
+    loadMapImgContext(mainMapImg, lowerMapImg);
     resizeCanvas();
     resetView();
     // renderRoundSegments(rounds);
@@ -743,6 +811,8 @@ async function initDemoReviewPage() {
 
     // Start playback
     drawFrame();
+    // Disable the loader
+    disableLoader(loader);
   };
 
   const checkIfAllImagesLoaded = () => {
@@ -838,6 +908,8 @@ async function initDemoReviewPage() {
     drawTick(tick, mainMapImg, lowerMapImg);
   };
 
+  const settingsModal = document.getElementById("settingsModal");
+
   document.addEventListener("keydown", (e) => {
     debugPanel.querySelector("#lastKeyPressed").innerHTML = e.code;
     if (e.code === "KeyR") {
@@ -859,6 +931,10 @@ async function initDemoReviewPage() {
       } else {
         pauseBtn.click();
       }
+    }
+    if (e.code === "KeyS") {
+      console.log("lol");
+      toggleElementVisibility(settingsModal);
     }
   });
 }

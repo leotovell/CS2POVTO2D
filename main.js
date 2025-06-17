@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, Menu, MenuItem } from "electron";
 import * as nodePath from "node:path";
 import { readFileSync, writeFile } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades } from "@laihoe/demoparser2";
+import { parseHeader, parsePlayerInfo, parseEvents, parseEvent, listGameEvents, parseTicks, parseGrenades, parsePlayerSkins } from "@laihoe/demoparser2";
 import { previewDemo, processBasicTicks, processEvents, processGrenades } from "./js/backend.js";
 import { Worker } from "worker_threads";
 import express from "express";
@@ -50,6 +50,7 @@ api.get("/api/demo/process", async (req, res) => {
     const mapDataPath = nodePath.join(app.getAppPath(), "map-data", "map-data.json");
     let mapData = JSON.parse(readFileSync(mapDataPath, "utf-8"));
     let thisMapData = mapData[demoHeader.map_name];
+    // let gameEndTick = Math.max(...parseEvent(demoFileBuffer, "round_end").map((x) => x.tick));
     let { round_start_events, round_freeze_end_events, round_end_events, round_officially_ended_events, bomb_planted_events, bomb_dropped_events, bomb_defused_events, bomb_begindefuse_events, player_death_events } = processEvents(demoFileBuffer, [
       "round_start",
       "round_freeze_end",
@@ -62,11 +63,6 @@ api.get("/api/demo/process", async (req, res) => {
       "player_death",
     ]);
 
-    // console.log(bomb_dropped_events);
-    // console.log(bomb_defused_events);
-    // console.log(bomb_begindefuse_events);
-    // console.log(player_death_events);
-
     const demoRoundEvents = {
       round_start_events,
       round_freeze_end_events,
@@ -78,6 +74,15 @@ api.get("/api/demo/process", async (req, res) => {
       bomb_begindefuse_events,
       player_death_events,
     };
+
+    // Get scoreboard at end of each round_end_event,
+    let scoreboardFields = ["kills_total", "assists_total", "deaths_total"];
+    let roundScoreboards = parseTicks(
+      demoFileBuffer,
+      scoreboardFields,
+      demoRoundEvents.round_start_events.map((ev) => ev.tick)
+    );
+    demoRoundEvents.scoreboards = roundScoreboards;
 
     // Work out how many ticks to adjust by, and from what ticks onwards do we begin adjusting. This is to negate the knife round delay...
 

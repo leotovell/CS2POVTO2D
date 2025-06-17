@@ -8,6 +8,6 @@ if (workerData.task === "ticks") {
   parentPort.postMessage(result);
 } else if (workerData.task === "grenades") {
   console.log("Nades - Started");
-  const result = debugTime("parseGrenades", () => parseGrenades(workerData.buffer));
+  const result = debugTime("parseGrenades", () => parseGrenades(workerData.buffer, [], false));
   parentPort.postMessage(result);
 }

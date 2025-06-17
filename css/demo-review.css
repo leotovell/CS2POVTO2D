@@ -6,6 +6,28 @@
   --t-color: #f79b4e;
 }
 
+.loader-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--body-color); /* slightly darkens the background */
+  z-index: 1050; /* above most Bootstrap elements */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: white;
+  opacity: 100%;
+}
+
+.loader-text {
+  margin-top: 1rem;
+  font-size: 1.25rem;
+  text-align: center;
+}
+
 .draggable-panel {
   position: absolute;
   top: 100px;
@@ -212,7 +234,7 @@
 }
 
 .round {
-  height: 7%;
+  min-height: 7%;
   background-color: var(--body-color);
   border-radius: 10px;
   transition: box-shadow 0.3s ease-in-out;
@@ -223,11 +245,23 @@
 
 .round-bar {
   gap: 7px;
+  overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Scrollbar styles */
+.round-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .round:hover {
   box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.5);
   cursor: pointer;
+}
+
+.round.active {
+  box-shadow: 0 0 1px 1px white;
 }
 
 .round div {
@@ -291,6 +325,19 @@ html {
 .middle-panel {
   flex-grow: 1;
   overflow: auto;
+}
+
+#teamAlphaName,
+#teamBetaName {
+  font-size: 2.5rem;
+  text-align: center;
+}
+
+#teamAlphaScore,
+#teamBetaScore,
+#scoreDivider {
+  font-size: 2.5rem;
+  text-align: center;
 }
 
 input[type="range"] {
@@ -417,4 +464,171 @@ input[type="range"] {
 
 .overlay-control {
   pointer-events: auto; /* Reactivate pointer events for just the controls */
+}
+
+.modal-backdrop.show {
+  opacity: 0.2 !important;
+}
+
+.team-hud {
+  height: calc(50% - 0.5vh) !important;
+  border-radius: 10px;
+}
+
+.team-hud:first-child {
+  background-color: var(--ct-color);
+  margin-bottom: 1vh;
+}
+
+.team-hud:last-child {
+  background-color: var(--t-color);
+}
+
+.team-hud div.title {
+  justify-content: center;
+  align-items: center;
+  font-size: 2.5rem;
+  display: flex;
+  font-weight: bold;
+}
+
+.team-hud div.economy {
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  display: flex;
+}
+
+.team-hud div {
+}
+
+.team-hud {
+  height: calc(50% - 0.5vh) !important;
+  border-radius: 10px;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.team-hud > .title,
+.team-hud > .economy {
+  height: 3.5%;
+  flex-shrink: 0;
+}
+
+.team-hud > .player {
+  flex-grow: 1 !important;
+  flex-shrink: 1 !important;
+  flex-basis: 0 !important;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  /* align-items: center; */
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.team-hud .title {
+  height: 3.5%;
+}
+
+.team-hud .economy {
+  height: 3.5%;
+}
+
+.team-hud .player .health-armor-balance {
+  text-align: right;
+}
+
+.stat-icon {
+  height: 70% !important;
+  max-height: 1.8rem !important;
+}
+
+.scoreboard-stats {
+  flex: 1;
+  grid-template-columns: repeat(2, 1fr);
+
+  align-items: center;
+}
+
+.sidebar.player-hud {
+  position: relative;
+}
+
+.grenade-svg {
+  height: 90%;
+  max-height: 90%;
+  width: auto;
+  object-fit: contain;
+}
+
+.svg-scale-lock {
+  height: 90%;
+  max-height: 90%;
+  max-width: 100%;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  fill: white;
+}
+
+.equipment-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 40px;
+  background-color: var(--panel-color);
+  color: white;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.stat-icon,
+.weapon-svg,
+.grenade-svg {
+  max-height: 90%;
+  max-width: 90%;
+  height: auto;
+  width: auto;
+  display: block;
+}
+
+.player-name {
+  font-weight: bold;
+  font-size: x-large;
+  flex: 2;
+
+  padding-left: 5%;
+}
+
+.health-armor-bal {
+  align-items: center;
+  margin-left: auto;
+  gap: 0.25rem;
+}
+
+.health-armor-bal span {
+  text-align: center;
+  font-size: 1.25rem;
+}
+
+.health-armor-bal svg {
+  width: 100%;
+  max-height: 90%;
+  display: inline-block;
+  fill: white;
+  color: white;
+}
+
+.rem1-padding-left {
+  padding-left: 1rem !important;
 }
